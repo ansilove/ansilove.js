@@ -106,7 +106,7 @@ Used for .BIN files only. Skip this option when converting other formats. The de
 
 ### SAUCE record
 
-As well as a canvas element, a [SAUCE][3] record is returned as a Javascript object if one is found, and follows the following format:
+As well as a canvas element, a [SAUCE][3] record is returned as a Javascript object if one is found, and follows this format:
 
     {
         "version": "00",
@@ -137,12 +137,12 @@ Ansilove is released under a MIT-style license. See `LICENSE` file for details.
 
 ## Author
 
-Ansilove is developed by [Frederic Cambus](http://www.cambus.net)
+Ansilove is developed by [Frederic Cambus](http://www.cambus.net)  
 Ansilove.js is developed by [Andrew Herbert](http://andyh.org)
 
 ## Resources
 
-Project Homepage : https://github.com/andyherbert/ansilove.js
+Project Homepage : [https://github.com/andyherbert/ansilove.js](https://github.com/andyherbert/ansilove.js)
 
 [1]: https://github.com/fcambus/ansilove
 [2]: https://github.com/ByteProject/AnsiLove-C
