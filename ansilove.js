@@ -277,8 +277,8 @@ var AnsiLove = (function () {
 
         ANSI = [0, 4, 2, 20, 1, 5, 3, 7, 56, 60, 58, 62, 57, 61, 59, 63].map(egaRGB);
         BIN = [0, 1, 2, 3, 4, 5, 20, 7, 56, 57, 58, 59, 60, 61, 62, 63].map(egaRGB);
-        CED = [7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].map(egaRGB);
-        WORKBENCH = [[170, 170, 170, 255], [0, 0, 0, 255], [255, 255, 255, 255], [102, 136, 187, 255], [0, 0, 255, 255], [255, 0, 255, 255], [0, 255, 255, 255], [255, 255, 255, 255], [170, 170, 170, 255], [0, 0, 0, 255], [255, 255, 255, 255], [102, 136, 187, 255], [0, 0, 255, 255], [255, 0, 255, 255], [0, 255, 255, 255], [255, 255, 255, 255]];
+        CED = [7, 0].map(egaRGB);
+        WORKBENCH = [[170, 170, 170, 255], [170, 170, 170, 255], [0, 0, 0, 255], [0, 0, 0, 255], [255, 255, 255, 255], [255, 255, 255, 255], [102, 136, 187, 255], [102, 136, 187, 255], [0, 0, 255, 255], [0, 0, 255, 255], [255, 0, 255, 255], [255, 0, 255, 255], [0, 255, 255, 255], [0, 255, 255, 255], [255, 255, 255, 255], [255, 255, 255, 255]];
 
         function triplets16(file) {
             var pal, i, r, g, b;
@@ -916,10 +916,14 @@ var AnsiLove = (function () {
                     escaped = true;
                     break;
                 default:
-                    if (!inverse) {
-                        imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (foreground + 8) : foreground) + (blink && icecolors ? (background + 8 << 4) : (background << 4)));
+                    if (mode === "ced") {
+                        imageData.set(x - 1, y - 1 + topOfScreen, code, 1);
                     } else {
-                        imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (background + 8) : background) + (blink && icecolors ? (foreground + 8 << 4) : (foreground << 4)));
+                        if (!inverse) {
+                            imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (foreground + 8) : foreground) + (blink && icecolors ? (background + 8 << 4) : (background << 4)));
+                        } else {
+                            imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (background + 8) : background) + (blink && icecolors ? (foreground + 8 << 4) : (foreground << 4)));
+                        }
                     }
                     if (++x === columns + 1) {
                         newLine();
