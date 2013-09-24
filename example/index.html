@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+    <title>ansilove.js</title>
+    <script src="../ansilove.js" type="text/javascript" charset="utf-8"></script>
+    <style type="text/css" media="screen">
+    body {
+        background: black;
+    }
+    .center {
+        margin: 16px auto;
+        background-color: black;
+        padding: 16px;
+    }
+    #header {
+        width: 720px;
+        border: 1px solid #aaaaaa;
+    }
+    #example {
+        width: 528px;
+        overflow: hidden;
+    }
+    </style>
+</head>
+    <body>
+        <div id="header" class="center"></div>
+        
+<script type="text/javascript">
+
+AnsiLove.render("cl!-al02.ans", function (canvas, sauce) {
+    document.getElementById("header").appendChild(canvas);
+}, {"bits": "9"});
+
+</script>
+        
+        <div id="example" class="center"></div>
+        
+<script type="text/javascript">
+
+AnsiLove.render("example_usage.ans", function (canvas, sauce) {
+    document.getElementById("example").appendChild(canvas);
+});
+
+</script>
+        
+    </body>
+</html>
