@@ -125,7 +125,7 @@ As well as a canvas element, a [SAUCE][3] record is returned as a Javascript obj
         "flags": 0
     }
 
-It is also possible to retrieve a record for a file without generating an image by using the 'sauce' function.
+It is also possible to retrieve a record for a file without generating an image by using the `sauce` function.
 
     AnsiLove.sauce("example.ans", function (sauce) {
         console.log(sauce);
