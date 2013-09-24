@@ -112,7 +112,7 @@ As well as a canvas element, a [SAUCE][3] record is returned as a Javascript obj
         "version": "00",
         "title": "Example ANSI",
         "author": "Joe Q. Public",
-        "group": "Acme Productions",
+        "group": "Generic Ansi Group",
         "date": "20130922",
         "fileSize": 1337,
         "dataType": 1,
