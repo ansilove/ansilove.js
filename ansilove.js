@@ -264,7 +264,7 @@ var AnsiLove = (function () {
     }());
 
     Palette = (function () {
-        var ANSI, BIN, CED, WORKBENCH;
+        var ASC_PC, ANSI, BIN, CED, WORKBENCH;
 
         function egaRGB(value) {
             return new Uint8Array([
@@ -275,6 +275,7 @@ var AnsiLove = (function () {
             ]);
         }
 
+        ASC_PC = [0, 7].map(egaRGB);
         ANSI = [0, 4, 2, 20, 1, 5, 3, 7, 56, 60, 58, 62, 57, 61, 59, 63].map(egaRGB);
         BIN = [0, 1, 2, 3, 4, 5, 20, 7, 56, 57, 58, 59, 60, 61, 62, 63].map(egaRGB);
         CED = [7, 0].map(egaRGB);
@@ -305,6 +306,7 @@ var AnsiLove = (function () {
         }
 
         return {
+            "ASC_PC": ASC_PC,
             "ANSI": ANSI,
             "BIN": BIN,
             "CED": CED,
@@ -973,6 +975,35 @@ var AnsiLove = (function () {
         };
     }
 
+    function asc(bytes) {
+        var file, imageData, code, x, y;
+
+        file = new File(bytes);
+        imageData = new ScreenData(80);
+
+        x = 0;
+        y = 0;
+
+        while (!file.eof()) {
+            code = file.get();
+            if (code === 13 && file.peek() === 10) {
+                file.read(1);
+                ++y;
+                x = 0;
+            } else {
+                imageData.set(x++, y, code, 1);
+            }
+        }
+
+        return {
+            "imageData": imageData.getData(),
+            "palette": Palette.ASC_PC,
+            "width": 80,
+            "height": imageData.getHeight(),
+            "sauce": file.sauce
+        };
+    }
+
     function httpGet(url, callback) {
         var http = new XMLHttpRequest();
         http.open("GET", url, true);
@@ -1028,20 +1059,15 @@ var AnsiLove = (function () {
             var extension, data;
             extension = url.split(".").pop().toLowerCase();
             switch (extension) {
+            case "txt":
+            case "nfo":
+            case "asc":
+                data = asc(bytes);
+                callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
+                break;
             case "diz":
             case "ion":
-                data = trimColumns(ans(bytes));
-                callback(display(data, splitRows), data.sauce);
-                break;
-            case "ans":
-            case "txt":
-            case "asc":
-            case "mem":
-            case "nfo":
-            case "cia":
-            case "ice":
-            case "drk":
-                data = ans(bytes, icecolors === 1, bits);
+                data = trimColumns(asc(bytes));
                 callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
                 break;
             case "adf":
@@ -1069,7 +1095,8 @@ var AnsiLove = (function () {
                 callback(display(data, splitRows), data.sauce);
                 break;
             default:
-                throw "Urecognized file type " + extension + ".";
+                data = ans(bytes, icecolors === 1, bits);
+                callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
             }
         });
     }
