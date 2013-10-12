@@ -49,6 +49,16 @@ Ansilove.js has been tested on Safari, Firefox, and Chrome. Results may vary wid
         console.log(sauce);
     }, {"font": "80x25", "bits": "8", "icecolors": 0, "columns": 80});
 
+For extremely large files, which may silently fail on some browsers when producing a single canvas element, the `splitRender` function will produce an array of canvas elements, which can then be stacked vertically in the browser to simulate a single, contiguous display. The value of `27` in the following example is the maximum amount of text-rows in used in each element.
+
+    AnsiLove.splitRender("long_ansi.ans", function (canvases, sauce) {
+        canvases.forEach(function (canvas) {
+            document.body.appendChild(canvas);
+        });
+        console.log(sauce);
+    }, 27, {"bits": "8"});
+
+
 ### PC font options: 
 
  - 80x25 (Default, code page 437)
