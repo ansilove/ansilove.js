@@ -930,21 +930,22 @@ var AnsiLove = (function () {
                 case 13:
                 case 26:
                     break;
-                case 27:
-                    escaped = true;
-                    break;
                 default:
-                    if (mode === "ced") {
-                        imageData.set(x - 1, y - 1 + topOfScreen, code, 1);
+                    if (code === 27 && file.peek() === 0x5B) {
+                        escaped = true;
                     } else {
-                        if (!inverse) {
-                            imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (foreground + 8) : foreground) + (blink && icecolors ? (background + 8 << 4) : (background << 4)));
+                        if (mode === "ced") {
+                            imageData.set(x - 1, y - 1 + topOfScreen, code, 1);
                         } else {
-                            imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (background + 8) : background) + (blink && icecolors ? (foreground + 8 << 4) : (foreground << 4)));
+                            if (!inverse) {
+                                imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (foreground + 8) : foreground) + (blink && icecolors ? (background + 8 << 4) : (background << 4)));
+                            } else {
+                                imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (background + 8) : background) + (blink && icecolors ? (foreground + 8 << 4) : (foreground << 4)));
+                            }
                         }
-                    }
-                    if (++x === columns + 1) {
-                        newLine();
+                        if (++x === columns + 1) {
+                            newLine();
+                        }
                     }
                 }
             }
