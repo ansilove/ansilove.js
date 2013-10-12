@@ -22,7 +22,7 @@
         border: 1px solid #aaaaaa;
     }
     #example {
-        width: 528px;
+        width: 544px;
         overflow: hidden;
     }
     .links, .links a {
@@ -129,6 +129,18 @@ AnsiLove.render("example_usage.ans", function (canvas, sauce) {
   console.log(sauce);
 }, {&quot;font&quot;: &quot;80x25&quot;, &quot;bits&quot;: &quot;8&quot;, &quot;icecolors&quot;: 0, &quot;columns&quot;: 80});
 </code></pre>
+
+            <p>For extremely large files, which may silently fail on some browsers when producing a single canvas element, the `splitRender` function will produce an array of canvas elements, which can then be stacked vertically in the browser to simulate a single, contiguous display. The value of <code>27</code> in the following example is the maximum amount of text-rows in used in each element.</p>
+
+<pre><code>AnsiLove.splitRender(&quot;long_ansi.ans&quot;, function (canvases, sauce) {
+        canvases.forEach(function (canvas) {
+            document.body.appendChild(canvas);
+        });
+        console.log(sauce);
+}, 27, {&quot;bits&quot;: &quot;8&quot;});
+</code></pre>
+
+
 
             <h3 id="pcfontoptions:">PC font options:</h3>
 
