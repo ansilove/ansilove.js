@@ -408,8 +408,8 @@ var AnsiLove = (function () {
         };
     }
 
-    function display(raw, altFont, px9) {
-        var canvas, font, ctx, i, x, y;
+    function display(raw, splitRows, altFont, px9) {
+        var canvas, font, ctx, i, j, x, y;
 
         font = raw.font || altFont || Font.preset("80x25");
         px9 = px9 || false;
@@ -418,23 +418,41 @@ var AnsiLove = (function () {
             font.setWidth(8);
         }
 
-        canvas = createCanvas(raw.width * font.getWidth(), raw.height * font.getHeight());
-        ctx = canvas.getContext("2d");
+        if (splitRows) {
+            canvas = [];
+            ctx = [];
+            for (i = Math.ceil(raw.height / splitRows) - 1; i >= 0; --i) {
+                canvas[i] = createCanvas(raw.width * font.getWidth(), splitRows * font.getHeight());
+                ctx[i] = canvas[i].getContext("2d");
+            }
+            if (raw.height % splitRows) {
+                canvas[Math.ceil(raw.height / splitRows) - 1].height = raw.height % splitRows * font.getHeight();
+            }
+        } else {
+            canvas = createCanvas(raw.width * font.getWidth(), raw.height * font.getHeight());
+            ctx = canvas.getContext("2d");
+        }
 
         if (raw.palette === undefined) {
-            for (i = x = y = 0; i < raw.imageData.length; i += 9) {
-                font.draw(ctx, x++, y, raw.imageData[i], raw.imageData.subarray(i + 1, i + 5), raw.imageData.subarray(i + 5, i + 9));
+            for (i = j = x = y = 0; i < raw.imageData.length; i += 9) {
+                font.draw(splitRows ? ctx[j] : ctx, x++, y, raw.imageData[i], raw.imageData.subarray(i + 1, i + 5), raw.imageData.subarray(i + 5, i + 9));
                 if (x % raw.width === 0) {
                     x = 0;
-                    ++y;
+                    if (++y === splitRows && splitRows) {
+                        y = 0;
+                        ++j;
+                    }
                 }
             }
         } else {
-            for (i = x = y = 0; i < raw.imageData.length; i += 2) {
-                font.draw(ctx, x++, y, raw.imageData[i], raw.palette[raw.imageData[i + 1] & 15], raw.palette[raw.imageData[i + 1] >> 4]);
+            for (i = j = x = y = 0; i < raw.imageData.length; i += 2) {
+                font.draw(splitRows ? ctx[j] : ctx, x++, y, raw.imageData[i], raw.palette[raw.imageData[i + 1] & 15], raw.palette[raw.imageData[i + 1] >> 4]);
                 if (x % raw.width === 0) {
                     x = 0;
-                    ++y;
+                    if (++y === splitRows && splitRows) {
+                        y = 0;
+                        ++j;
+                    }
                 }
             }
         }
@@ -995,7 +1013,7 @@ var AnsiLove = (function () {
         return data;
     }
 
-    function render(url, callback, options) {
+    function render(url, callback, splitRows, options) {
         var icecolors, bits, columns, font;
         if (options) {
             icecolors = options.icecolors;
@@ -1010,7 +1028,7 @@ var AnsiLove = (function () {
             case "diz":
             case "ion":
                 data = trimColumns(ans(bytes));
-                callback(display(data), data.sauce);
+                callback(display(data, splitRows), data.sauce);
                 break;
             case "ans":
             case "txt":
@@ -1021,31 +1039,31 @@ var AnsiLove = (function () {
             case "ice":
             case "drk":
                 data = ans(bytes, icecolors === 1, bits);
-                callback(display(data, Font.preset(font), bits === "9"), data.sauce);
+                callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
                 break;
             case "adf":
                 data = adf(bytes);
-                callback(display(data), data.sauce);
+                callback(display(data, splitRows), data.sauce);
                 break;
             case "bin":
                 data = bin(bytes, columns || 160, icecolors === 1);
-                callback(display(data, Font.preset(font), bits === "9"), data.sauce);
+                callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
                 break;
             case "idf":
                 data = idf(bytes);
-                callback(display(data), data.sauce);
+                callback(display(data, splitRows), data.sauce);
                 break;
             case "pcb":
                 data = pcb(bytes, icecolors === 1);
-                callback(display(data, Font.preset(font), bits === "9"), data.sauce);
+                callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
                 break;
             case "tnd":
                 data = tnd(bytes);
-                callback(display(data, Font.preset(font), bits === "9"), data.sauce);
+                callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
                 break;
             case "xb":
                 data = xb(bytes);
-                callback(display(data), data.sauce);
+                callback(display(data, splitRows), data.sauce);
                 break;
             default:
                 throw "Urecognized file type " + extension + ".";
@@ -1062,7 +1080,12 @@ var AnsiLove = (function () {
     }
 
     return {
-        "render": render,
+        "render": function (url, callback, options) {
+            render(url, callback, 0, options);
+        },
+        "splitRender": function (url, callback, splitRows, options) {
+            render(url, callback, splitRows || 27, options);
+        },
         "sauce": sauce
     };
 }());
