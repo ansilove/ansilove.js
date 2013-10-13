@@ -57,7 +57,16 @@ For extremely large files, which may silently fail on some browsers when produci
         });
         console.log(sauce);
     }, 27, {"bits": "8"});
+   
+And for ANSImations, the animate function returns a controller object which when issued with the play() call, renders an ANSI at a pre-determined baud rate, and can be passed an additional function which is called upon completion.
 
+    var controller = AnsiLove.animate("ansimation.ans", function (canvas, sauce) {
+        document.getElementById("example").appendChild(canvas);
+        console.log(sauce);
+        controller.play(14400, function () {
+            console.log("Finished!");
+        });
+    }, {"bits": "9"});
 
 ### PC font options: 
 
