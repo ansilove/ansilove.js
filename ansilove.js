@@ -191,7 +191,7 @@ var AnsiLove = (function () {
                     imageData.data.set(bits[j++] ? fg : bg, k);
                     k += 4;
                 }
-                ctx.putImageData(imageData, x * width, y * height);
+                ctx.putImageData(imageData, x * width, y * height, 0, 0, width, height);
             }
 
             function getHeight() {
@@ -264,7 +264,7 @@ var AnsiLove = (function () {
     }());
 
     Palette = (function () {
-        var ANSI, BIN, CED, WORKBENCH;
+        var ASC_PC, ANSI, BIN, CED, WORKBENCH;
 
         function egaRGB(value) {
             return new Uint8Array([
@@ -275,9 +275,10 @@ var AnsiLove = (function () {
             ]);
         }
 
+        ASC_PC = [0, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7].map(egaRGB);
         ANSI = [0, 4, 2, 20, 1, 5, 3, 7, 56, 60, 58, 62, 57, 61, 59, 63].map(egaRGB);
         BIN = [0, 1, 2, 3, 4, 5, 20, 7, 56, 57, 58, 59, 60, 61, 62, 63].map(egaRGB);
-        CED = [7, 0].map(egaRGB);
+        CED = [7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].map(egaRGB);
         WORKBENCH = [[170, 170, 170, 255], [170, 170, 170, 255], [0, 0, 0, 255], [0, 0, 0, 255], [255, 255, 255, 255], [255, 255, 255, 255], [102, 136, 187, 255], [102, 136, 187, 255], [0, 0, 255, 255], [0, 0, 255, 255], [255, 0, 255, 255], [255, 0, 255, 255], [0, 255, 255, 255], [0, 255, 255, 255], [255, 255, 255, 255], [255, 255, 255, 255]];
 
         function triplets16(file) {
@@ -305,6 +306,7 @@ var AnsiLove = (function () {
         }
 
         return {
+            "ASC_PC": ASC_PC,
             "ANSI": ANSI,
             "BIN": BIN,
             "CED": CED,
@@ -408,8 +410,8 @@ var AnsiLove = (function () {
         };
     }
 
-    function display(raw, altFont, px9) {
-        var canvas, font, ctx, i, x, y;
+    function display(raw, splitRows, altFont, px9) {
+        var canvas, font, ctx, i, j, x, y;
 
         font = raw.font || altFont || Font.preset("80x25");
         px9 = px9 || false;
@@ -418,23 +420,41 @@ var AnsiLove = (function () {
             font.setWidth(8);
         }
 
-        canvas = createCanvas(raw.width * font.getWidth(), raw.height * font.getHeight());
-        ctx = canvas.getContext("2d");
+        if (splitRows) {
+            canvas = [];
+            ctx = [];
+            for (i = Math.ceil(raw.height / splitRows) - 1; i >= 0; --i) {
+                canvas[i] = createCanvas(raw.width * font.getWidth(), splitRows * font.getHeight());
+                ctx[i] = canvas[i].getContext("2d");
+            }
+            if (raw.height % splitRows) {
+                canvas[Math.ceil(raw.height / splitRows) - 1].height = raw.height % splitRows * font.getHeight();
+            }
+        } else {
+            canvas = createCanvas(raw.width * font.getWidth(), raw.height * font.getHeight());
+            ctx = canvas.getContext("2d");
+        }
 
         if (raw.palette === undefined) {
-            for (i = x = y = 0; i < raw.imageData.length; i += 9) {
-                font.draw(ctx, x++, y, raw.imageData[i], raw.imageData.subarray(i + 1, i + 5), raw.imageData.subarray(i + 5, i + 9));
+            for (i = j = x = y = 0; i < raw.imageData.length; i += 9) {
+                font.draw(splitRows ? ctx[j] : ctx, x++, y, raw.imageData[i], raw.imageData.subarray(i + 1, i + 5), raw.imageData.subarray(i + 5, i + 9));
                 if (x % raw.width === 0) {
                     x = 0;
-                    ++y;
+                    if (++y === splitRows && splitRows) {
+                        y = 0;
+                        ++j;
+                    }
                 }
             }
         } else {
-            for (i = x = y = 0; i < raw.imageData.length; i += 2) {
-                font.draw(ctx, x++, y, raw.imageData[i], raw.palette[raw.imageData[i + 1] & 15], raw.palette[raw.imageData[i + 1] >> 4]);
+            for (i = j = x = y = 0; i < raw.imageData.length; i += 2) {
+                font.draw(splitRows ? ctx[j] : ctx, x++, y, raw.imageData[i], raw.palette[raw.imageData[i + 1] & 15], raw.palette[raw.imageData[i + 1] >> 4]);
                 if (x % raw.width === 0) {
                     x = 0;
-                    ++y;
+                    if (++y === splitRows && splitRows) {
+                        y = 0;
+                        ++j;
+                    }
                 }
             }
         }
@@ -906,27 +926,30 @@ var AnsiLove = (function () {
                 }
             } else {
                 switch (code) {
-                case 10:
-                    newLine();
-                    break;
                 case 13:
+                    if (file.peek() === 0x0A) {
+                        file.read(1);
+                        newLine();
+                    }
+                    break;
                 case 26:
                     break;
-                case 27:
-                    escaped = true;
-                    break;
                 default:
-                    if (mode === "ced") {
-                        imageData.set(x - 1, y - 1 + topOfScreen, code, 1);
+                    if (code === 27 && file.peek() === 0x5B) {
+                        escaped = true;
                     } else {
-                        if (!inverse) {
-                            imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (foreground + 8) : foreground) + (blink && icecolors ? (background + 8 << 4) : (background << 4)));
+                        if (mode === "ced") {
+                            imageData.set(x - 1, y - 1 + topOfScreen, code, 1);
                         } else {
-                            imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (background + 8) : background) + (blink && icecolors ? (foreground + 8 << 4) : (foreground << 4)));
+                            if (!inverse) {
+                                imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (foreground + 8) : foreground) + (blink && icecolors ? (background + 8 << 4) : (background << 4)));
+                            } else {
+                                imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (background + 8) : background) + (blink && icecolors ? (foreground + 8 << 4) : (foreground << 4)));
+                            }
                         }
-                    }
-                    if (++x === columns + 1) {
-                        newLine();
+                        if (++x === columns + 1) {
+                            newLine();
+                        }
                     }
                 }
             }
@@ -947,6 +970,35 @@ var AnsiLove = (function () {
             "imageData": imageData.getData(),
             "palette": palette,
             "width": columns,
+            "height": imageData.getHeight(),
+            "sauce": file.sauce
+        };
+    }
+
+    function asc(bytes) {
+        var file, imageData, code, x, y;
+
+        file = new File(bytes);
+        imageData = new ScreenData(80);
+
+        x = 0;
+        y = 0;
+
+        while (!file.eof()) {
+            code = file.get();
+            if (code === 13 && file.peek() === 10) {
+                file.read(1);
+                ++y;
+                x = 0;
+            } else {
+                imageData.set(x++, y, code, 1);
+            }
+        }
+
+        return {
+            "imageData": imageData.getData(),
+            "palette": Palette.ASC_PC,
+            "width": 80,
             "height": imageData.getHeight(),
             "sauce": file.sauce
         };
@@ -995,7 +1047,7 @@ var AnsiLove = (function () {
         return data;
     }
 
-    function render(url, callback, options) {
+    function render(url, callback, splitRows, options) {
         var icecolors, bits, columns, font;
         if (options) {
             icecolors = options.icecolors;
@@ -1007,48 +1059,44 @@ var AnsiLove = (function () {
             var extension, data;
             extension = url.split(".").pop().toLowerCase();
             switch (extension) {
+            case "txt":
+            case "nfo":
+            case "asc":
+                data = asc(bytes);
+                callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
+                break;
             case "diz":
             case "ion":
-                data = trimColumns(ans(bytes));
-                callback(display(data), data.sauce);
-                break;
-            case "ans":
-            case "txt":
-            case "asc":
-            case "mem":
-            case "nfo":
-            case "cia":
-            case "ice":
-            case "drk":
-                data = ans(bytes, icecolors === 1, bits);
-                callback(display(data, Font.preset(font), bits === "9"), data.sauce);
+                data = trimColumns(asc(bytes));
+                callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
                 break;
             case "adf":
                 data = adf(bytes);
-                callback(display(data), data.sauce);
+                callback(display(data, splitRows), data.sauce);
                 break;
             case "bin":
                 data = bin(bytes, columns || 160, icecolors === 1);
-                callback(display(data, Font.preset(font), bits === "9"), data.sauce);
+                callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
                 break;
             case "idf":
                 data = idf(bytes);
-                callback(display(data), data.sauce);
+                callback(display(data, splitRows), data.sauce);
                 break;
             case "pcb":
                 data = pcb(bytes, icecolors === 1);
-                callback(display(data, Font.preset(font), bits === "9"), data.sauce);
+                callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
                 break;
             case "tnd":
                 data = tnd(bytes);
-                callback(display(data, Font.preset(font), bits === "9"), data.sauce);
+                callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
                 break;
             case "xb":
                 data = xb(bytes);
-                callback(display(data), data.sauce);
+                callback(display(data, splitRows), data.sauce);
                 break;
             default:
-                throw "Urecognized file type " + extension + ".";
+                data = ans(bytes, icecolors === 1, bits);
+                callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
             }
         });
     }
@@ -1061,8 +1109,257 @@ var AnsiLove = (function () {
         });
     }
 
+    function Ansimation(file, canvas, ctx, font, icecolors, palette) {
+        var escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, bold, blink, inverse, timer;
+
+        function resetAttributes() {
+            foreground = 7;
+            background = 0;
+            bold = false;
+            blink = false;
+            inverse = false;
+        }
+
+        function newLine() {
+            var characterHeight;
+            x = 1;
+            if (y === 26 - 1) {
+                characterHeight = font.getHeight();
+                ctx.drawImage(canvas, 0, characterHeight, canvas.width, canvas.height - characterHeight * 2, 0, 0, canvas.width, canvas.height - characterHeight * 2);
+                ctx.fillStyle = "rgb(" + palette[0][0] + ", " + palette[0][1] + ", " + palette[0][2] + ")";
+                ctx.fillRect(0, canvas.height - characterHeight * 2, canvas.width, characterHeight);
+                return true;
+            }
+            ++y;
+            return false;
+        }
+
+        function setPos(newX, newY) {
+            x = Math.min(80, Math.max(1, newX));
+            y = Math.min(26, Math.max(1, newY));
+        }
+
+        function clearScreen() {
+            ctx.fillStyle = "rgb(" + palette[0][0] + ", " + palette[0][1] + ", " + palette[0][2] + ")";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function resetAll() {
+            clearScreen();
+            resetAttributes();
+            setPos(1, 1);
+            escapeCode = "";
+            escaped = false;
+            file.seek(0);
+        }
+
+        function getValues() {
+            return escapeCode.substr(1, escapeCode.length - 2).split(";").map(function (value) {
+                var parsedValue;
+                parsedValue = parseInt(value, 10);
+                return isNaN(parsedValue) ? 1 : parsedValue;
+            });
+        }
+
+        function read(num) {
+            var i;
+            for (i = 0; i < num; ++i) {
+                if (file.eof()) {
+                    break;
+                }
+                code = file.get();
+                if (escaped) {
+                    escapeCode += String.fromCharCode(code);
+                    if ((code >= 65 && code <= 90) || (code >= 97 && code <= 122)) {
+                        escaped = false;
+                        values = getValues();
+                        if (escapeCode.charAt(0) === "[") {
+                            switch (escapeCode.charAt(escapeCode.length - 1)) {
+                            case "A":
+                                y = Math.max(1, y - values[0]);
+                                break;
+                            case "B":
+                                y = Math.min(26 - 1, y + values[0]);
+                                break;
+                            case "C":
+                                if (x === 80) {
+                                    if (newLine()) {
+                                        return i + 1;
+                                    }
+                                }
+                                x = Math.min(80, x + values[0]);
+                                break;
+                            case "D":
+                                x = Math.max(1, x - values[0]);
+                                break;
+                            case "H":
+                                if (values.length === 1) {
+                                    setPos(1, Math.min(values[0]));
+                                } else {
+                                    setPos(values[1], values[0]);
+                                }
+                                break;
+                            case "J":
+                                if (values[0] === 2) {
+                                    x = 1;
+                                    y = 1;
+                                    clearScreen();
+                                }
+                                break;
+                            case "K":
+                                for (j = x - 1; j < 80; ++j) {
+                                    font.draw(ctx, j, y, 0, palette[0], palette[0]);
+                                }
+                                break;
+                            case "m":
+                                for (j = 0; j < values.length; ++j) {
+                                    if (values[j] >= 30 && values[j] <= 37) {
+                                        foreground = values[j] - 30;
+                                    } else if (values[j] >= 40 && values[j] <= 47) {
+                                        background = values[j] - 40;
+                                    } else {
+                                        switch (values[j]) {
+                                        case 0:
+                                            resetAttributes();
+                                            break;
+                                        case 1:
+                                            bold = true;
+                                            break;
+                                        case 5:
+                                            blink = true;
+                                            break;
+                                        case 7:
+                                            inverse = true;
+                                            break;
+                                        case 22:
+                                            bold = false;
+                                            break;
+                                        case 25:
+                                            blink = false;
+                                            break;
+                                        case 27:
+                                            inverse = false;
+                                            break;
+                                        case 39:
+                                            break;
+                                        default:
+                                            break;
+                                        }
+                                    }
+                                }
+                                break;
+                            case "s":
+                                savedX = x;
+                                savedY = y;
+                                break;
+                            case "u":
+                                x = savedX;
+                                y = savedY;
+                                break;
+                            default:
+                                break;
+                            }
+                        }
+                        escapeCode = "";
+                    }
+                } else {
+                    switch (code) {
+                    case 13:
+                        if (file.peek() === 0x0A) {
+                            file.read(1);
+                            if (newLine()) {
+                                return i + 1;
+                            }
+                        }
+                        break;
+                    case 26:
+                        break;
+                    default:
+                        if (code === 27 && file.peek() === 0x5B) {
+                            escaped = true;
+                        } else {
+                            if (!inverse) {
+                                font.draw(ctx, x - 1, y - 1, code, palette[bold ? (foreground + 8) : foreground], palette[(blink && icecolors) ? (background + 8) : background]);
+                            } else {
+                                font.draw(ctx, x - 1, y - 1, code, palette[bold ? (background + 8) : background], palette[(blink && icecolors) ? (foreground + 8) : foreground]);
+                            }
+                            if (++x === 80 + 1) {
+                                if (newLine()) {
+                                    return i + 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return i;
+        }
+
+        return {
+            "play": function (baud, callback) {
+                var length;
+                clearTimeout(timer);
+                function drawChunk() {
+                    if (read(length)) {
+                        timer = setTimeout(drawChunk, 10);
+                    } else if (callback) {
+                        callback();
+                    }
+                }
+                length = Math.floor((baud || 115200) / 8 / 100);
+                resetAll();
+                drawChunk();
+            }
+        };
+    }
+
+    function animate(url, callback, options) {
+        var ansimation, canvas, ctx, file, icecolors, bits, font, palette;
+        if (options) {
+            icecolors = options.icecolors || false;
+            bits = options.bits || 8;
+            font = Font.preset(options.font || "80x25");
+        } else {
+            icecolors = false;
+            bits = 8;
+            font = Font.preset("80x25");
+        }
+        if (font.getWidth() === 9 && bits !== "9") {
+            font.setWidth(8);
+        }
+        switch (bits) {
+        case "ced":
+            palette = Palette.CED;
+            break;
+        case "workbench":
+            palette = Palette.WORKBENCH;
+            break;
+        default:
+            palette = Palette.ANSI;
+        }
+        httpGet(url, function (bytes) {
+            file = new File(bytes);
+            canvas = createCanvas(80 * font.getWidth(), 26 * font.getHeight());
+            ctx = canvas.getContext("2d");
+            ansimation = new Ansimation(file, canvas, ctx, font, icecolors, palette);
+            callback(canvas, file.sauce);
+        });
+        return {
+            "play": function (baud, callback) {
+                ansimation.play(baud, callback);
+            }
+        };
+    }
+
     return {
-        "render": render,
+        "render": function (url, callback, options) {
+            render(url, callback, 0, options);
+        },
+        "splitRender": function (url, callback, splitRows, options) {
+            render(url, callback, splitRows || 27, options);
+        },
+        "animate": animate,
         "sauce": sauce
     };
 }());

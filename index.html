@@ -22,7 +22,8 @@
         border: 1px solid #aaaaaa;
     }
     #example {
-        width: 544px;
+        width: 720px;
+        height: 384px;
         overflow: hidden;
     }
     .links, .links a {
@@ -42,7 +43,7 @@
     }
     pre {
         font: 15px "Lucida Console", Monaco, monospace;
-        width: 640px;
+        width: 720px;
         border: 1px solid #AAAAAA;
         padding: 8px;
         margin: 0 auto;
@@ -51,23 +52,19 @@
 </head>
     <body>
         <div id="header" class="center"></div>
+        <div id="example" class="center"></div>
         
 <script type="text/javascript">
+var controller;
 
 AnsiLove.render("cl!-al02.ans", function (canvas, sauce) {
     document.getElementById("header").appendChild(canvas);
 }, {"bits": "9"});
 
-</script>
-        
-        <div id="example" class="center"></div>
-        
-<script type="text/javascript">
-
-AnsiLove.render("example_usage.ans", function (canvas, sauce) {
+controller = AnsiLove.animate("example_usage.ans", function (canvas, sauce) {
     document.getElementById("example").appendChild(canvas);
-});
-
+    controller.play(2800);
+}, {"bits": "9"});
 </script>
 
         <div class="links">
@@ -140,7 +137,16 @@ AnsiLove.render("example_usage.ans", function (canvas, sauce) {
 }, 27, {&quot;bits&quot;: &quot;8&quot;});
 </code></pre>
 
+            <p>And for ANSImations, the animate function returns a controller object which when issued with the play() call, renders an ANSI at a pre-determined baud rate, and can be passed an additional function which is called upon completion.</p>
 
+<pre><code>var controller = AnsiLove.animate(&quot;ansimation.ans&quot;, function (canvas, sauce) {
+    document.getElementById(&quot;example&quot;).appendChild(canvas);
+    console.log(sauce);
+    controller.play(14400, function () {
+        console.log(&quot;Finished!&quot;);
+    });
+}, {&quot;bits&quot;: &quot;9&quot;});
+</code></pre>
 
             <h3 id="pcfontoptions:">PC font options:</h3>
 
