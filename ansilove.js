@@ -1110,7 +1110,7 @@ var AnsiLove = (function () {
     }
 
     function Ansimation(file, canvas, ctx, font, icecolors, palette) {
-        var escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, bold, blink, inverse;
+        var escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, bold, blink, inverse, timer;
 
         function resetAttributes() {
             foreground = 7;
@@ -1150,6 +1150,7 @@ var AnsiLove = (function () {
             setPos(1, 1);
             escapeCode = "";
             escaped = false;
+            file.seek(0);
         }
 
         function getValues() {
@@ -1298,9 +1299,10 @@ var AnsiLove = (function () {
         return {
             "play": function (baud, callback) {
                 var length;
+                clearTimeout(timer);
                 function drawChunk() {
                     if (read(length)) {
-                        setTimeout(drawChunk, 10);
+                        timer = setTimeout(drawChunk, 10);
                     } else if (callback) {
                         callback();
                     }
@@ -1308,9 +1310,6 @@ var AnsiLove = (function () {
                 length = Math.floor((baud || 115200) / 8 / 100);
                 resetAll();
                 drawChunk();
-            },
-            "reset": function () {
-                file.seek(0);
             }
         };
     }
@@ -1349,9 +1348,6 @@ var AnsiLove = (function () {
         return {
             "play": function (baud, callback) {
                 ansimation.play(baud, callback);
-            },
-            "reset": function () {
-                ansimation.reset();
             }
         };
     }
