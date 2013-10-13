@@ -191,7 +191,7 @@ var AnsiLove = (function () {
                     imageData.data.set(bits[j++] ? fg : bg, k);
                     k += 4;
                 }
-                ctx.putImageData(imageData, x * width, y * height);
+                ctx.putImageData(imageData, x * width, y * height, 0, 0, width, height);
             }
 
             function getHeight() {
@@ -275,10 +275,10 @@ var AnsiLove = (function () {
             ]);
         }
 
-        ASC_PC = [0, 7].map(egaRGB);
+        ASC_PC = [0, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7].map(egaRGB);
         ANSI = [0, 4, 2, 20, 1, 5, 3, 7, 56, 60, 58, 62, 57, 61, 59, 63].map(egaRGB);
         BIN = [0, 1, 2, 3, 4, 5, 20, 7, 56, 57, 58, 59, 60, 61, 62, 63].map(egaRGB);
-        CED = [7, 0].map(egaRGB);
+        CED = [7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].map(egaRGB);
         WORKBENCH = [[170, 170, 170, 255], [170, 170, 170, 255], [0, 0, 0, 255], [0, 0, 0, 255], [255, 255, 255, 255], [255, 255, 255, 255], [102, 136, 187, 255], [102, 136, 187, 255], [0, 0, 255, 255], [0, 0, 255, 255], [255, 0, 255, 255], [255, 0, 255, 255], [0, 255, 255, 255], [0, 255, 255, 255], [255, 255, 255, 255], [255, 255, 255, 255]];
 
         function triplets16(file) {
@@ -1109,6 +1109,253 @@ var AnsiLove = (function () {
         });
     }
 
+    function Ansimation(file, canvas, ctx, font, icecolors, palette) {
+        var escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, bold, blink, inverse;
+
+        function resetAttributes() {
+            foreground = 7;
+            background = 0;
+            bold = false;
+            blink = false;
+            inverse = false;
+        }
+
+        function newLine() {
+            var characterHeight;
+            x = 1;
+            if (y === 26 - 1) {
+                characterHeight = font.getHeight();
+                ctx.drawImage(canvas, 0, characterHeight, canvas.width, canvas.height - characterHeight * 2, 0, 0, canvas.width, canvas.height - characterHeight * 2);
+                ctx.fillStyle = "rgb(" + palette[0][0] + ", " + palette[0][1] + ", " + palette[0][2] + ")";
+                ctx.fillRect(0, canvas.height - characterHeight * 2, canvas.width, characterHeight);
+                return true;
+            }
+            ++y;
+            return false;
+        }
+
+        function setPos(newX, newY) {
+            x = Math.min(80, Math.max(1, newX));
+            y = Math.min(26, Math.max(1, newY));
+        }
+
+        function clearScreen() {
+            ctx.fillStyle = "rgb(" + palette[0][0] + ", " + palette[0][1] + ", " + palette[0][2] + ")";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function resetAll() {
+            clearScreen();
+            resetAttributes();
+            setPos(1, 1);
+            escapeCode = "";
+            escaped = false;
+        }
+
+        function getValues() {
+            return escapeCode.substr(1, escapeCode.length - 2).split(";").map(function (value) {
+                var parsedValue;
+                parsedValue = parseInt(value, 10);
+                return isNaN(parsedValue) ? 1 : parsedValue;
+            });
+        }
+
+        function read(num) {
+            var i;
+            for (i = 0; i < num; ++i) {
+                if (file.eof()) {
+                    break;
+                }
+                code = file.get();
+                if (escaped) {
+                    escapeCode += String.fromCharCode(code);
+                    if ((code >= 65 && code <= 90) || (code >= 97 && code <= 122)) {
+                        escaped = false;
+                        values = getValues();
+                        if (escapeCode.charAt(0) === "[") {
+                            switch (escapeCode.charAt(escapeCode.length - 1)) {
+                            case "A":
+                                y = Math.max(1, y - values[0]);
+                                break;
+                            case "B":
+                                y = Math.min(26 - 1, y + values[0]);
+                                break;
+                            case "C":
+                                if (x === 80) {
+                                    if (newLine()) {
+                                        return i + 1;
+                                    }
+                                }
+                                x = Math.min(80, x + values[0]);
+                                break;
+                            case "D":
+                                x = Math.max(1, x - values[0]);
+                                break;
+                            case "H":
+                                if (values.length === 1) {
+                                    setPos(1, Math.min(values[0]));
+                                } else {
+                                    setPos(values[1], values[0]);
+                                }
+                                break;
+                            case "J":
+                                if (values[0] === 2) {
+                                    x = 1;
+                                    y = 1;
+                                    clearScreen();
+                                }
+                                break;
+                            case "K":
+                                for (j = x - 1; j < 80; ++j) {
+                                    font.draw(ctx, j, y, 0, palette[0], palette[0]);
+                                }
+                                break;
+                            case "m":
+                                for (j = 0; j < values.length; ++j) {
+                                    if (values[j] >= 30 && values[j] <= 37) {
+                                        foreground = values[j] - 30;
+                                    } else if (values[j] >= 40 && values[j] <= 47) {
+                                        background = values[j] - 40;
+                                    } else {
+                                        switch (values[j]) {
+                                        case 0:
+                                            resetAttributes();
+                                            break;
+                                        case 1:
+                                            bold = true;
+                                            break;
+                                        case 5:
+                                            blink = true;
+                                            break;
+                                        case 7:
+                                            inverse = true;
+                                            break;
+                                        case 22:
+                                            bold = false;
+                                            break;
+                                        case 25:
+                                            blink = false;
+                                            break;
+                                        case 27:
+                                            inverse = false;
+                                            break;
+                                        case 39:
+                                            break;
+                                        default:
+                                            break;
+                                        }
+                                    }
+                                }
+                                break;
+                            case "s":
+                                savedX = x;
+                                savedY = y;
+                                break;
+                            case "u":
+                                x = savedX;
+                                y = savedY;
+                                break;
+                            default:
+                                break;
+                            }
+                        }
+                        escapeCode = "";
+                    }
+                } else {
+                    switch (code) {
+                    case 13:
+                        if (file.peek() === 0x0A) {
+                            file.read(1);
+                            if (newLine()) {
+                                return i + 1;
+                            }
+                        }
+                        break;
+                    case 26:
+                        break;
+                    default:
+                        if (code === 27 && file.peek() === 0x5B) {
+                            escaped = true;
+                        } else {
+                            if (!inverse) {
+                                font.draw(ctx, x - 1, y - 1, code, palette[bold ? (foreground + 8) : foreground], palette[(blink && icecolors) ? (background + 8) : background]);
+                            } else {
+                                font.draw(ctx, x - 1, y - 1, code, palette[bold ? (background + 8) : background], palette[(blink && icecolors) ? (foreground + 8) : foreground]);
+                            }
+                            if (++x === 80 + 1) {
+                                if (newLine()) {
+                                    return i + 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return i;
+        }
+
+        return {
+            "play": function (baud, callback) {
+                var length;
+                function drawChunk() {
+                    if (read(length)) {
+                        setTimeout(drawChunk, 10);
+                    } else if (callback) {
+                        callback();
+                    }
+                }
+                length = Math.floor((baud || 115200) / 8 / 100);
+                resetAll();
+                drawChunk();
+            },
+            "reset": function () {
+                file.seek(0);
+            }
+        };
+    }
+
+    function animate(url, callback, options) {
+        var ansimation, canvas, ctx, file, icecolors, bits, font, palette;
+        if (options) {
+            icecolors = options.icecolors || false;
+            bits = options.bits || 8;
+            font = Font.preset(options.font || "80x25");
+        } else {
+            icecolors = false;
+            bits = 8;
+            font = Font.preset("80x25");
+        }
+        if (font.getWidth() === 9 && bits !== "9") {
+            font.setWidth(8);
+        }
+        switch (bits) {
+        case "ced":
+            palette = Palette.CED;
+            break;
+        case "workbench":
+            palette = Palette.WORKBENCH;
+            break;
+        default:
+            palette = Palette.ANSI;
+        }
+        httpGet(url, function (bytes) {
+            file = new File(bytes);
+            canvas = createCanvas(80 * font.getWidth(), 26 * font.getHeight());
+            ctx = canvas.getContext("2d");
+            ansimation = new Ansimation(file, canvas, ctx, font, icecolors, palette);
+            callback(canvas, file.sauce);
+        });
+        return {
+            "play": function (baud, callback) {
+                ansimation.play(baud, callback);
+            },
+            "reset": function () {
+                ansimation.reset();
+            }
+        };
+    }
+
     return {
         "render": function (url, callback, options) {
             render(url, callback, 0, options);
@@ -1116,6 +1363,7 @@ var AnsiLove = (function () {
         "splitRender": function (url, callback, splitRows, options) {
             render(url, callback, splitRows || 27, options);
         },
+        "animate": animate,
         "sauce": sauce
     };
 }());
