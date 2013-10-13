@@ -9,16 +9,17 @@
         background: black;
     }
     .center {
-        margin: 16px auto;
+        margin: 0 auto;
         background-color: black;
         padding: 16px;
     }
     #header {
         width: 720px;
-        border: 1px solid #aaaaaa;
+        height: 464px;
     }
     #example {
-        width: 528px;
+        width: 720px;
+        height: 384px;
         overflow: hidden;
     }
     </style>
@@ -26,22 +27,19 @@
     <body>
         <div id="header" class="center"></div>
         
+        <div id="example" class="center"></div>
+        
 <script type="text/javascript">
+var controller;
 
 AnsiLove.render("cl!-al02.ans", function (canvas, sauce) {
     document.getElementById("header").appendChild(canvas);
 }, {"bits": "9"});
 
-</script>
-        
-        <div id="example" class="center"></div>
-        
-<script type="text/javascript">
-
-AnsiLove.render("example_usage.ans", function (canvas, sauce) {
+controller = AnsiLove.animate("example_usage.ans", function (canvas, sauce) {
     document.getElementById("example").appendChild(canvas);
-});
-
+    controller.play(2800);
+}, {"bits": "9"});
 </script>
         
     </body>
