@@ -1110,7 +1110,14 @@ var AnsiLove = (function () {
     }
 
     function Ansimation(file, canvas, ctx, font, icecolors, palette) {
-        var escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, bold, blink, inverse, timer;
+        var blinkCanvas, buffer, bufferCtx, blinkCtx, escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, drawForeground, drawBackground, bold, inverse, blink;
+
+        blinkCanvas = [createCanvas(canvas.width, canvas.height), createCanvas(canvas.width, canvas.height)];
+        buffer = createCanvas(canvas.width, canvas.height);
+        blinkCtx = blinkCanvas.map(function (canvas) {
+            return canvas.getContext("2d");
+        });
+        bufferCtx = buffer.getContext("2d");
 
         function resetAttributes() {
             foreground = 7;
@@ -1120,14 +1127,28 @@ var AnsiLove = (function () {
             inverse = false;
         }
 
+        function clearScreen(sx, sy, width, height) {
+            ctx.fillStyle = "rgb(" + palette[0][0] + ", " + palette[0][1] + ", " + palette[0][2] + ")";
+            ctx.fillRect(sx, sy, width, height);
+            blinkCtx[0].clearRect(sx, sy, width, height);
+            blinkCtx[1].clearRect(sx, sy, width, height);
+        }
+
         function newLine() {
             var characterHeight;
             x = 1;
             if (y === 26 - 1) {
                 characterHeight = font.getHeight();
                 ctx.drawImage(canvas, 0, characterHeight, canvas.width, canvas.height - characterHeight * 2, 0, 0, canvas.width, canvas.height - characterHeight * 2);
-                ctx.fillStyle = "rgb(" + palette[0][0] + ", " + palette[0][1] + ", " + palette[0][2] + ")";
-                ctx.fillRect(0, canvas.height - characterHeight * 2, canvas.width, characterHeight);
+                bufferCtx.clearRect(0, 0, canvas.width, canvas.height);
+                bufferCtx.drawImage(blinkCanvas[0], 0, characterHeight, canvas.width, canvas.height - characterHeight * 2, 0, 0, canvas.width, canvas.height - characterHeight * 2);
+                blinkCtx[0].clearRect(0, 0, canvas.width, canvas.height);
+                blinkCtx[0].drawImage(buffer, 0, 0);
+                bufferCtx.clearRect(0, 0, canvas.width, canvas.height);
+                bufferCtx.drawImage(blinkCanvas[1], 0, characterHeight, canvas.width, canvas.height - characterHeight * 2, 0, 0, canvas.width, canvas.height - characterHeight * 2);
+                blinkCtx[1].clearRect(0, 0, canvas.width, canvas.height);
+                blinkCtx[1].drawImage(buffer, 0, 0);
+                clearScreen(0, canvas.height - characterHeight * 2, canvas.width, characterHeight);
                 return true;
             }
             ++y;
@@ -1139,13 +1160,8 @@ var AnsiLove = (function () {
             y = Math.min(26, Math.max(1, newY));
         }
 
-        function clearScreen() {
-            ctx.fillStyle = "rgb(" + palette[0][0] + ", " + palette[0][1] + ", " + palette[0][2] + ")";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
-
         function resetAll() {
-            clearScreen();
+            clearScreen(0, 0, canvas.width, canvas.height);
             resetAttributes();
             setPos(1, 1);
             escapeCode = "";
@@ -1162,7 +1178,7 @@ var AnsiLove = (function () {
         }
 
         function read(num) {
-            var i;
+            var i, characterWidth, characterHeight;
             for (i = 0; i < num; ++i) {
                 if (file.eof()) {
                     break;
@@ -1203,13 +1219,13 @@ var AnsiLove = (function () {
                                 if (values[0] === 2) {
                                     x = 1;
                                     y = 1;
-                                    clearScreen();
+                                    clearScreen(0, 0, canvas.width, canvas.height);
                                 }
                                 break;
                             case "K":
-                                for (j = x - 1; j < 80; ++j) {
-                                    font.draw(ctx, j, y, 0, palette[0], palette[0]);
-                                }
+                                characterWidth = font.getWidth();
+                                characterHeight = font.getHeight();
+                                clearScreen((x - 1) * characterWidth, (y - 1) * characterHeight, canvas.width - (x - 1) * characterWidth, characterHeight);
                                 break;
                             case "m":
                                 for (j = 0; j < values.length; ++j) {
@@ -1278,11 +1294,18 @@ var AnsiLove = (function () {
                         if (code === 27 && file.peek() === 0x5B) {
                             escaped = true;
                         } else {
-                            if (!inverse) {
-                                font.draw(ctx, x - 1, y - 1, code, palette[bold ? (foreground + 8) : foreground], palette[(blink && icecolors) ? (background + 8) : background]);
+                            if (inverse) {
+                                drawForeground = background;
+                                drawBackground = foreground;
                             } else {
-                                font.draw(ctx, x - 1, y - 1, code, palette[bold ? (background + 8) : background], palette[(blink && icecolors) ? (foreground + 8) : foreground]);
+                                drawForeground = foreground;
+                                drawBackground = background;
                             }
+                            if (!icecolors && blink) {
+                                font.draw(blinkCtx[0], x - 1, y - 1, code, palette[bold ? (drawForeground + 8) : drawForeground], palette[drawBackground]);
+                                font.draw(blinkCtx[1], x - 1, y - 1, code, palette[drawBackground], palette[drawBackground]);
+                            }
+                            font.draw(ctx, x - 1, y - 1, code, palette[bold ? (drawForeground + 8) : drawForeground], palette[(blink && icecolors) ? (drawBackground + 8) : drawBackground]);
                             if (++x === 80 + 1) {
                                 if (newLine()) {
                                     return i + 1;
@@ -1298,8 +1321,14 @@ var AnsiLove = (function () {
 
         return {
             "play": function (baud, callback) {
-                var length;
+                var timer, interval, length, drawBlink;
                 clearTimeout(timer);
+                clearInterval(interval);
+                drawBlink = false;
+                interval = setInterval(function () {
+                    ctx.drawImage(blinkCanvas[drawBlink ? 1 : 0], 0, 0);
+                    drawBlink = !drawBlink;
+                }, 250);
                 function drawChunk() {
                     if (read(length)) {
                         timer = setTimeout(drawChunk, 10);
@@ -1315,7 +1344,7 @@ var AnsiLove = (function () {
     }
 
     function animate(url, callback, options) {
-        var ansimation, canvas, ctx, file, icecolors, bits, font, palette;
+        var ansimation, icecolors, bits, font, palette;
         if (options) {
             icecolors = options.icecolors || false;
             bits = options.bits || 8;
@@ -1339,6 +1368,7 @@ var AnsiLove = (function () {
             palette = Palette.ANSI;
         }
         httpGet(url, function (bytes) {
+            var file, canvas, ctx;
             file = new File(bytes);
             canvas = createCanvas(80 * font.getWidth(), 26 * font.getHeight());
             ctx = canvas.getContext("2d");
