@@ -926,6 +926,9 @@ var AnsiLove = (function () {
                 }
             } else {
                 switch (code) {
+                case 10:
+                    newLine();
+                    break;
                 case 13:
                     if (file.peek() === 0x0A) {
                         file.read(1);
@@ -1307,6 +1310,11 @@ var AnsiLove = (function () {
                     }
                 } else {
                     switch (code) {
+                    case 10:
+                        if (newLine()) {
+                            return i + 1;
+                        }
+                        break;
                     case 13:
                         if (file.peek() === 0x0A) {
                             file.read(1);
