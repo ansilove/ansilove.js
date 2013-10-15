@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+    <title>ansilove.js</title>
+    <script src="../ansilove.js" type="text/javascript" charset="utf-8"></script>
+    <style type="text/css" media="screen">
+    body {
+        background: black;
+        margin: 0;
+    }
+    .center {
+        margin: 0px auto;
+    }
+    #ansi canvas {
+        width: 1280px;
+        height: 864px;
+        image-rendering: optimize-contrast;
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: -moz-crisp-edges;
+    }
+    </style>
+</head>
+    <body>
+        <div id="ansi" class="center"></div>
+        
+<script type="text/javascript">
+var ANS = [ "2m-cock7ronics.ans", "2m-fromthesea.ans", "2m-history.ans", "2m-invaders.ans", "2m-moon.ans", "2m-rock7ronics.ans", "2m-uchihaevoke.ans", "43-25ln01.ans", "70-ansi.ans", "70-haciend.ans", "70-sense.ans", "70-twilight.ans", "GOO-1king.ans", "GOO-blockbrains.ans", "TCF - 01 - Intro.ans", "TCF - 02 - B7.ans", "TCF - 03 - The Kurai.ans", "TCF - 04 - TEKLORDZ 2013.ans", "TCF - 05 - so-sa1 Remix.ans", "TCF - 06 - Vii3.ans", "TCF - 07 - iPARENT.ans", "TCF - 08 - Pharcyde.ans", "TCF - 09 - Sadist Arts.ans", "TCF - 10 - ACiD Productions.ans", "TCF - 11 - TOOL.ans", "TCF - 12 - Facebook.ans", "TCF - 13 - Wolverine Battle.ans", "TCF - 14 - Collection of Menus.ans", "TCF - 15 - Collection of Headers.ans", "WHATHAPPENEDWITHLUCIANOAYRES.ANS", "_005 - B7 - INFORMATION.ans", "_blockmen_res[v]olution.ans", "_blocknews2.ans", "_blockstreetboyz.ans", "_blocktronics_16colors.ans", "_blocktronics_awaken.ans", "_blocktronics_res[v]olution.ans", "ab-hezbolla.ans", "ao-boba.ans", "ao-dvt9.ans", "avg-16c.ans", "avg-aid.ans", "avg-antoine.ans", "avg-b7.ans", "avg-bflag.ans", "avg-carz.ans", "avg-clutch25.ans", "avg-dexter.ans", "avg-evoke.ans", "avg-evoke13.ans", "avg-fks2013.ans", "avg-ice.ans", "avg-inf.ans", "avg-luvchris.ans", "avg-onesix.ans", "avg-pitt.ans", "avg-rip.ans", "avg-sense3d.ans", "avg-spawn.ans", "avg-tna2013.ans", "avg-xtr1.ans", "biz-collo_final.ans", "biz-sideone_final.ans", "biz-sidetwo_final.ans", "bw-ACIDprod.ans", "bw-BoF_welcome.ans", "bw-WZ.ans", "bw-ansidevil.ans", "bw-ansiland.ans", "bw-antr.ans", "bw-bbscolly.ans", "bw-birdprey.ans", "bw-evoke2k11_assemble.ans", "bw-holyhammer.ans", "bw-koalaplay.ans", "bw-mentalmeltdown.ans", "bw-msq_logoff.ans", "bw-msq_welcome.ans", "bw-piranha_1.ans", "bw-piranha_2.ans", "bw-skull_and_cherrys.ans", "bw_67.ans", "bw_enzo.ans", "bw_masquerade_menu6.ans", "bw_piranha_3menu.ans", "bw_spacegarden.ans", "bw_tales_from_sorrowhill.ans.ans", "bym-jul7.ans", "bym-ngl.ans", "bym-on_holiday_pt1-3.ans", "bym-outofit.ans", "cS-deadlines.ans", "cg-ice.ans", "cg-sc.ans", "cl!-67.ans", "cl!-ango.ans", "cl!-flph.ans", "cl!-rngd.ans", "cm-freebsd.ans", "cow.ans", "cryo-b7_01.ans", "cs-capslogo.ans", "cs-colly.ans", "cx-moonlit_dance.ans", "del-sixt.ans", "del_after.ans", "del_fluph.ans", "del_ink2.ans", "del_twerk.ans", "fil-abcd.ans", "fil-bloq.ans", "fil-dez.ans", "fil-farm.ans", "fil-inkd.ans", "fil-kley.ans", "fil-koku.ans", "fil-lips.ans", "fil-ping.ans", "fil-pist.ans", "fil-whip.ans", "gs-sense.ans", "h7-agora.ans", "h7-brape.ans", "h7-bt16c.ans", "h7-delMonte.ans", "h7-dsorrow.ans", "h7-haciend.ans", "h7-k1ice.ans", "h7-meast.ans", "h7-nsavo.ans", "h7-r2012.ans", "h7-rev13.ans", "h7-shoda.ans", "jp!-mythology.ans", "jp!aeon1.ans", "jp!bt2.ans", "jp!theo2.ans", "k1-agora.ans", "k1-alove.ans", "k1-avg.ans", "k1-bflag 2.ans", "k1-bflag.ans", "k1-block.ans", "k1-chop.ans", "k1-cia.ans", "k1-desu.ans", "k1-dface.ans", "k1-exds.ans", "k1-fire.ans", "k1-flame.ans", "k1-fluph.ans", "k1-ftron.ans", "k1-goop.ans", "k1-haci.ans", "k1-ink.ans", "k1-miser.ans", "k1-pablo 2.ans", "k1-pablo.ans", "k1-pharc.ans", "k1-remix.ans", "k1-shack.ans", "k1-sleep.ans", "k1-statd.ans", "k1-swalk.ans", "k1-tgirl.ans", "k1-truth.ans", "k1-zomb.ans", "mi-ab.ans", "mi-bf3.ans", "mi-bprd.ans", "mi-google.ans", "mi-rzr.ans", "mi-selfp.ans", "mi-swnsw.ans", "mos-peyotesands.ans", "mos-redDeadRedemption.ans", "mos-sixteencolors2.ans", "mt-block1.ans", "mt-cortez the killer.ans", "mt-flying eyeball.ans", "n4-67.ans", "n4-DARK9499.ANS", "n4-wendy.ans", "no-alove.ans", "no-epic.ans", "no-fluph.ans", "ns-1667.ans", "ns-TheTelephoneBoot.ans", "ns-ansilove.ans", "ns-blocktronics.ans", "ns-distortion.ans", "ns-hac.ans", "ns-void.ans", "ob-mario.ans", "pk-angel.ans", "pk-lud.ans", "pk-monster.ans", "pn-bowl.ans", "rad-ACID2013.ANS", "rad-HACIEND.ANS", "rad-INK2.ANS", "rad-PHARCYDE.ANS", "rad-PIRANHA.ANS", "rad2m-BSIDES.ANS", "ret-ansi.ans", "ret-entropy.ans", "ret-htc.ans", "ret-imnotanasciiartist.ans", "ret-pharcyde.ans", "ret-revolt.ans", "ret-tcf_font.ans", "rmp-impure.ans", "rod-theGrid.ans", "sm-acidblue.ans", "sm-acidgreen.ans", "sm-blackflag-01.ans", "sm-crisis.ans", "sm-dali.ans", "sm-fluph.ans", "sm-ink2logoff.ans", "sm-poptronics.ans", "smoke-cthun.ans", "sp!-b7.ans", "sp!-skullfuck.ans", "tcf - 17 - gutter13.ans", "tcf - 18 - collection of menus.ans", "tcf - 19 - lord collection.ans", "tcf-HTC.ans", "tcf-divine.ans", "tcf-tcf.ans", "tna-7diz.ans", "tna-AWE.ans", "tna-asm2000.ans", "txt-16c.ans", "txt-bb01.ans", "txt-blockzilla.ans", "txt-bt01.ans", "txt-cat01.ans", "txt-fluph1.ans", "txt-r3m1.ans", "ungenannt_ansiseries_blackflag.ans", "ungenannt_black flag.ans", "ungenannt_blackflag.ans", "ungenannt_cockadoodledoodle.ans", "ungenannt_cowboy.ans", "ungenannt_itsover.ans", "ungenannt_leviathan.ans", "us-xandertribute.ans", "wa-ansi.ans", "we-09.ans", "we-16colors.ans", "we-67 2.ans", "we-67.ans", "we-AWEtronics.ans", "we-FreeCoke.ans", "we-HTC.ans", "we-HotChick.ans", "we-acid69.ans", "we-alove.ans", "we-anime.ans", "we-awe.ans", "we-awe67_final.ans", "we-b71.ans", "we-b7evoke.ans", "we-barrytronics.ans", "we-bhave.ans", "we-blink.ans", "we-bsd.ans", "we-btnique.ans", "we-bunny.ans", "we-c22.ans", "we-caps.ans", "we-cent.ans", "we-centre.ans", "we-clutch.ans", "we-collide.ans", "we-cougar.ans", "we-deity.ans", "we-diamondie.ans", "we-ds.ans", "we-ent.ans", "we-enthral.ans", "we-entropy.ans", "we-exet.ans", "we-fokus.ans", "we-fredKokaine.ans", "we-herdulikeem.ans", "we-howardJones.ans", "we-htp01.ans", "we-id.ans", "we-loveFluph.ans", "we-lud.ans", "we-massivejoint.ans", "we-meetSpaceInvaders.ans", "we-mimic1.ans", "we-myth.ans", "we-outzoneRemix.ans", "we-pablo.ans", "we-pikapoo.ans", "we-radman 2.ans", "we-radman.ans", "we-rank.ans", "we-rem.ans", "we-roi01.ans", "we-satantronics.ans", "we-scum.ans", "we-sparta.ans", "we-spearcameback.ans", "we-sublime.ans", "we-the409-67.ans", "we-theCentre.ans", "we-thevoid.ans", "we-triple_final.ans", "we-trisk.ans", "we-viewtronics.ans", "we-wrong.ans", "we-zombies_in_space.ans", "we_Tbe_bw_rod.ans", "zO-16cColly.ans", "zO-16cDraw.ans", "zO-AHcolly.ans", "zO-FITC.ans", "zO-Masquerade.ans", "zO-Paloma.ans", "zO-XTset.ans", "zO-acid.ans", "zO-apollo.ans", "zO-blockHeroes.ans", "zO-experiment.ans", "zO-eyeTutorial.ans", "zO-konami.ans", "zO-lud.ans", "zO-obama.ans", "zii-13-2.ans", "zv-018.ans", "zv-anchorman.ans", "zv-centre.ans", "zv-clutch.ans", "zv-colly.ans", "zv-d157.ans", "zv-fonthow2.ans", "zv-greyVoid.ans", "zv-masq.ans", "zv-tutorial.ans", "zv-tvoid.ans", "zv-v01d.ans", "zzz_b7_Contest001.ans", "zzz_b7_Highlights_ENZO.ans", "zzz_b7_Highlights_PANDUR.ans", "zzz_b7_Highlights_RETRIBUTION.ans" ];
+function randomAns() {
+    return "ans/" + ANS[Math.floor(Math.random() * ANS.length)];
+}
+
+// ../reference/test_cases/ANSIMATION/CRWL2ACD.ANS
+var controller = AnsiLove.animate(randomAns(), function (canvas, sauce) {
+    document.getElementById("ansi").appendChild(canvas);
+    function start() {
+        controller.play(115200, function () {
+            controller.load(randomAns(), function () {
+                setTimeout(start, 3000);
+            });
+        }, false);
+    }
+    start();
+}, {"font": "80x25", "2J": 0});
+
+</script>
+        
+    </body>
+</html>
