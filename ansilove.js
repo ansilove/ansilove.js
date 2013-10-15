@@ -1132,7 +1132,6 @@ var AnsiLove = (function () {
         }
 
         rows = options.rows || 26;
-        console.log(rows);
 
         font = Font.preset(options.font) || Font.preset("80x25");
 
