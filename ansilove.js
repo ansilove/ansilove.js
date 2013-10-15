@@ -926,6 +926,9 @@ var AnsiLove = (function () {
                 }
             } else {
                 switch (code) {
+                case 10:
+                    newLine();
+                    break;
                 case 13:
                     if (file.peek() === 0x0A) {
                         file.read(1);
@@ -1109,8 +1112,33 @@ var AnsiLove = (function () {
         });
     }
 
-    function Ansimation(file, canvas, ctx, font, icecolors, palette) {
-        var blinkCanvas, buffer, bufferCtx, blinkCtx, escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, drawForeground, drawBackground, bold, inverse, blink;
+    function Ansimation(bytes, options) {
+        var timer, interval, file, font, icecolors, bits, palette, screenClear, canvas, ctx, blinkCanvas, buffer, bufferCtx, blinkCtx, escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, drawForeground, drawBackground, bold, inverse, blink;
+
+        file = new File(bytes);
+        icecolors = (options.icecolors === undefined) ? false : (options.icecolors === 1);
+        bits = options.bits || 8;
+        screenClear = (options["2J"] === undefined) ? true : (options["2J"] === 1);
+
+        switch (bits) {
+        case "ced":
+            palette = Palette.CED;
+            break;
+        case "workbench":
+            palette = Palette.WORKBENCH;
+            break;
+        default:
+            palette = Palette.ANSI;
+        }
+
+        font = Font.preset(options.font) || Font.preset("80x25");
+
+        if (font.getWidth() === 9 && bits !== "9") {
+            font.setWidth(8);
+        }
+
+        canvas = createCanvas(80 * font.getWidth(), 26 * font.getHeight());
+        ctx = canvas.getContext("2d");
 
         blinkCanvas = [createCanvas(canvas.width, canvas.height), createCanvas(canvas.width, canvas.height)];
         buffer = createCanvas(canvas.width, canvas.height);
@@ -1169,6 +1197,8 @@ var AnsiLove = (function () {
             file.seek(0);
         }
 
+        resetAll();
+
         function getValues() {
             return escapeCode.substr(1, escapeCode.length - 2).split(";").map(function (value) {
                 var parsedValue;
@@ -1216,7 +1246,7 @@ var AnsiLove = (function () {
                                 }
                                 break;
                             case "J":
-                                if (values[0] === 2) {
+                                if (screenClear && values[0] === 2) {
                                     x = 1;
                                     y = 1;
                                     clearScreen(0, 0, canvas.width, canvas.height);
@@ -1280,6 +1310,11 @@ var AnsiLove = (function () {
                     }
                 } else {
                     switch (code) {
+                    case 10:
+                        if (newLine()) {
+                            return i + 1;
+                        }
+                        break;
                     case 13:
                         if (file.peek() === 0x0A) {
                             file.read(1);
@@ -1320,8 +1355,10 @@ var AnsiLove = (function () {
         }
 
         return {
-            "play": function (baud, callback) {
-                var timer, interval, length, drawBlink;
+            "canvas": canvas,
+            "play": function (baud, callback, clearScreen) {
+                var length, drawBlink;
+                clearScreen = (clearScreen === undefined) ? true : clearScreen;
                 clearTimeout(timer);
                 clearInterval(interval);
                 drawBlink = false;
@@ -1337,47 +1374,41 @@ var AnsiLove = (function () {
                     }
                 }
                 length = Math.floor((baud || 115200) / 8 / 100);
-                resetAll();
+                if (clearScreen) {
+                    resetAll();
+                } else {
+                    resetAttributes();
+                    escapeCode = "";
+                    escaped = false;
+                    file.seek(0);
+                }
                 drawChunk();
-            }
+            },
+            "load": function (bytes, callback) {
+                clearTimeout(timer);
+                file = new File(bytes);
+                if (callback) {
+                    callback();
+                }
+            },
+            "sauce": file.sauce
         };
     }
 
     function animate(url, callback, options) {
-        var ansimation, icecolors, bits, font, palette;
-        if (options) {
-            icecolors = options.icecolors || false;
-            bits = options.bits || 8;
-            font = Font.preset(options.font || "80x25");
-        } else {
-            icecolors = false;
-            bits = 8;
-            font = Font.preset("80x25");
-        }
-        if (font.getWidth() === 9 && bits !== "9") {
-            font.setWidth(8);
-        }
-        switch (bits) {
-        case "ced":
-            palette = Palette.CED;
-            break;
-        case "workbench":
-            palette = Palette.WORKBENCH;
-            break;
-        default:
-            palette = Palette.ANSI;
-        }
+        var ansimation;
         httpGet(url, function (bytes) {
-            var file, canvas, ctx;
-            file = new File(bytes);
-            canvas = createCanvas(80 * font.getWidth(), 26 * font.getHeight());
-            ctx = canvas.getContext("2d");
-            ansimation = new Ansimation(file, canvas, ctx, font, icecolors, palette);
-            callback(canvas, file.sauce);
+            ansimation = new Ansimation(bytes, options || {});
+            callback(ansimation.canvas, ansimation.sauce);
         });
         return {
-            "play": function (baud, callback) {
-                ansimation.play(baud, callback);
+            "play": function (baud, callback, clearScreen) {
+                ansimation.play(baud, callback, clearScreen);
+            },
+            "load": function (url, callback) {
+                httpGet(url, function (bytes) {
+                    ansimation.load(bytes, callback);
+                });
             }
         };
     }
