@@ -1113,7 +1113,7 @@ var AnsiLove = (function () {
     }
 
     function Ansimation(bytes, options) {
-        var timer, interval, file, font, icecolors, bits, palette, screenClear, canvas, ctx, blinkCanvas, buffer, bufferCtx, blinkCtx, escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, drawForeground, drawBackground, bold, inverse, blink;
+        var timer, interval, file, font, icecolors, bits, palette, rows, screenClear, canvas, ctx, blinkCanvas, buffer, bufferCtx, blinkCtx, escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, drawForeground, drawBackground, bold, inverse, blink;
 
         file = new File(bytes);
         icecolors = (options.icecolors === undefined) ? false : (options.icecolors === 1);
@@ -1131,13 +1131,15 @@ var AnsiLove = (function () {
             palette = Palette.ANSI;
         }
 
+        rows = options.rows || 26;
+
         font = Font.preset(options.font) || Font.preset("80x25");
 
         if (font.getWidth() === 9 && bits !== "9") {
             font.setWidth(8);
         }
 
-        canvas = createCanvas(80 * font.getWidth(), 26 * font.getHeight());
+        canvas = createCanvas(80 * font.getWidth(), rows * font.getHeight());
         ctx = canvas.getContext("2d");
 
         blinkCanvas = [createCanvas(canvas.width, canvas.height), createCanvas(canvas.width, canvas.height)];
@@ -1165,7 +1167,7 @@ var AnsiLove = (function () {
         function newLine() {
             var characterHeight;
             x = 1;
-            if (y === 26 - 1) {
+            if (y === rows - 1) {
                 characterHeight = font.getHeight();
                 ctx.drawImage(canvas, 0, characterHeight, canvas.width, canvas.height - characterHeight * 2, 0, 0, canvas.width, canvas.height - characterHeight * 2);
                 bufferCtx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1185,7 +1187,7 @@ var AnsiLove = (function () {
 
         function setPos(newX, newY) {
             x = Math.min(80, Math.max(1, newX));
-            y = Math.min(26, Math.max(1, newY));
+            y = Math.min(rows, Math.max(1, newY));
         }
 
         function resetAll() {
@@ -1225,7 +1227,7 @@ var AnsiLove = (function () {
                                 y = Math.max(1, y - values[0]);
                                 break;
                             case "B":
-                                y = Math.min(26 - 1, y + values[0]);
+                                y = Math.min(rows - 1, y + values[0]);
                                 break;
                             case "C":
                                 if (x === 80) {
