@@ -1110,11 +1110,12 @@ var AnsiLove = (function () {
     }
 
     function Ansimation(bytes, options) {
-        var timer, interval, file, font, icecolors, bits, palette, canvas, ctx, blinkCanvas, buffer, bufferCtx, blinkCtx, escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, drawForeground, drawBackground, bold, inverse, blink;
+        var timer, interval, file, font, icecolors, bits, palette, screenClear, canvas, ctx, blinkCanvas, buffer, bufferCtx, blinkCtx, escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, drawForeground, drawBackground, bold, inverse, blink;
 
         file = new File(bytes);
-        icecolors = options.icecolors || false;
+        icecolors = (options.icecolors === undefined) ? false : (options.icecolors === 1);
         bits = options.bits || 8;
+        screenClear = (options["2J"] === undefined) ? true : (options["2J"] === 1);
 
         switch (bits) {
         case "ced":
@@ -1242,7 +1243,7 @@ var AnsiLove = (function () {
                                 }
                                 break;
                             case "J":
-                                if (values[0] === 2) {
+                                if (screenClear && values[0] === 2) {
                                     x = 1;
                                     y = 1;
                                     clearScreen(0, 0, canvas.width, canvas.height);
