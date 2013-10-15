@@ -1376,6 +1376,13 @@ var AnsiLove = (function () {
                 }
                 drawChunk();
             },
+            "load": function (bytes, callback) {
+                clearTimeout(timer);
+                file = new File(bytes);
+                if (callback) {
+                    callback();
+                }
+            },
             "sauce": file.sauce
         };
     }
@@ -1389,6 +1396,11 @@ var AnsiLove = (function () {
         return {
             "play": function (baud, callback, clearScreen) {
                 ansimation.play(baud, callback, clearScreen);
+            },
+            "load": function (url, callback) {
+                httpGet(url, function (bytes) {
+                    ansimation.load(bytes, callback);
+                });
             }
         };
     }
