@@ -2,9 +2,6 @@
 layout: default
 ---
 
-<div class="links">
-    <a href="https://github.com/andyherbert/ansilove.js/archive/master.zip">Download Source</a> &bull; <a href="https://github.com/andyherbert/ansilove.js/tree/master">Visit on Github</a>
-</div>
 <div id="example" class="center">
     
 </div>
