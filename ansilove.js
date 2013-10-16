@@ -1007,7 +1007,7 @@ var AnsiLove = (function () {
         };
     }
 
-    function httpGet(url, callback) {
+    function httpGet(url, callback, callbackFail) {
         var http = new XMLHttpRequest();
         http.open("GET", url, true);
 
@@ -1019,7 +1019,11 @@ var AnsiLove = (function () {
                     callback(new Uint8Array(http.response));
                     break;
                 default:
-                    throw ("Could not retrieve: " + url);
+                    if (callbackFail) {
+                        callbackFail();
+                    } else {
+                        throw ("Could not retrieve: " + url);
+                    }
                 }
             }
         };
@@ -1050,7 +1054,7 @@ var AnsiLove = (function () {
         return data;
     }
 
-    function render(url, callback, splitRows, options) {
+    function render(url, callback, splitRows, options, callbackFail) {
         var icecolors, bits, columns, font;
         if (options) {
             icecolors = options.icecolors;
@@ -1101,15 +1105,15 @@ var AnsiLove = (function () {
                 data = ans(bytes, icecolors === 1, bits);
                 callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
             }
-        });
+        }, callbackFail);
     }
 
-    function sauce(url, callback) {
+    function sauce(url, callback, callbackFail) {
         httpGet(url, function (bytes) {
             var file;
             file = new File(bytes);
             callback(file.sauce);
-        });
+        }, callbackFail);
     }
 
     function Ansimation(bytes, options) {
@@ -1397,20 +1401,20 @@ var AnsiLove = (function () {
         };
     }
 
-    function animate(url, callback, options) {
+    function animate(url, callback, options, callbackFail) {
         var ansimation;
         httpGet(url, function (bytes) {
             ansimation = new Ansimation(bytes, options || {});
             callback(ansimation.canvas, ansimation.sauce);
-        });
+        }, callbackFail);
         return {
             "play": function (baud, callback, clearScreen) {
                 ansimation.play(baud, callback, clearScreen);
             },
-            "load": function (url, callback) {
+            "load": function (url, callback, callbackFail) {
                 httpGet(url, function (bytes) {
                     ansimation.load(bytes, callback);
-                });
+                }, callbackFail);
             }
         };
     }
