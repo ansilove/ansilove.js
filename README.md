@@ -68,6 +68,14 @@ And for ANSImations, the animate function returns a controller object which when
         });
     }, {"bits": "9"});
 
+If a function is passed after the options object of any method, then it will be called in the event that the file cannot be fetched:
+
+    AnsiLove.render("example.ans", function (canvas, sauce) {
+        ...
+    }, {}, function () {
+        alert("An error occured.");
+    });
+
 ### PC font options: 
 
  - 80x25 (Default, code page 437)
