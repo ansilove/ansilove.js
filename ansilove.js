@@ -1117,7 +1117,7 @@ var AnsiLove = (function () {
     }
 
     function Ansimation(bytes, options) {
-        var timer, interval, file, font, icecolors, bits, palette, rows, screenClear, canvas, ctx, blinkCanvas, buffer, bufferCtx, blinkCtx, escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, drawForeground, drawBackground, bold, inverse, blink;
+        var timer, interval, file, font, icecolors, bits, palette, rows, screenClear, canvas, ctx, blinkCanvas, buffer, bufferCtx, blinkCtx, escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, drawForeground, drawBackground, bold, inverse, blink, characterWidth, characterHeight;
 
         file = new File(bytes);
         icecolors = (options.icecolors === undefined) ? false : (options.icecolors === 1);
@@ -1142,6 +1142,9 @@ var AnsiLove = (function () {
         if (font.getWidth() === 9 && bits !== "9") {
             font.setWidth(8);
         }
+
+        characterWidth = font.getWidth();
+        characterHeight = font.getHeight();
 
         canvas = createCanvas(80 * font.getWidth(), rows * font.getHeight());
         ctx = canvas.getContext("2d");
@@ -1168,11 +1171,17 @@ var AnsiLove = (function () {
             blinkCtx[1].clearRect(sx, sy, width, height);
         }
 
+        function clearBlinkChar(charX, charY) {
+            var sx, sy;
+            sx = charX * characterWidth;
+            sy = charY * characterHeight;
+            blinkCtx[0].clearRect(sx, sy, characterWidth, characterHeight);
+            blinkCtx[1].clearRect(sx, sy, characterWidth, characterHeight);
+        }
+
         function newLine() {
-            var characterHeight;
             x = 1;
             if (y === rows - 1) {
-                characterHeight = font.getHeight();
                 ctx.drawImage(canvas, 0, characterHeight, canvas.width, canvas.height - characterHeight * 2, 0, 0, canvas.width, canvas.height - characterHeight * 2);
                 bufferCtx.clearRect(0, 0, canvas.width, canvas.height);
                 bufferCtx.drawImage(blinkCanvas[0], 0, characterHeight, canvas.width, canvas.height - characterHeight * 2, 0, 0, canvas.width, canvas.height - characterHeight * 2);
@@ -1214,7 +1223,7 @@ var AnsiLove = (function () {
         }
 
         function read(num) {
-            var i, characterWidth, characterHeight;
+            var i;
             for (i = 0; i < num; ++i) {
                 if (file.eof()) {
                     break;
@@ -1259,8 +1268,6 @@ var AnsiLove = (function () {
                                 }
                                 break;
                             case "K":
-                                characterWidth = font.getWidth();
-                                characterHeight = font.getHeight();
                                 clearScreen((x - 1) * characterWidth, (y - 1) * characterHeight, canvas.width - (x - 1) * characterWidth, characterHeight);
                                 break;
                             case "m":
@@ -1342,9 +1349,13 @@ var AnsiLove = (function () {
                                 drawForeground = foreground;
                                 drawBackground = background;
                             }
-                            if (!icecolors && blink) {
-                                font.draw(blinkCtx[0], x - 1, y - 1, code, palette[bold ? (drawForeground + 8) : drawForeground], palette[drawBackground]);
-                                font.draw(blinkCtx[1], x - 1, y - 1, code, palette[drawBackground], palette[drawBackground]);
+                            if (!icecolors) {
+                                if (blink) {
+                                    font.draw(blinkCtx[0], x - 1, y - 1, code, palette[bold ? (drawForeground + 8) : drawForeground], palette[drawBackground]);
+                                    font.draw(blinkCtx[1], x - 1, y - 1, code, palette[drawBackground], palette[drawBackground]);
+                                } else {
+                                    clearBlinkChar(x - 1, y - 1);
+                                }
                             }
                             font.draw(ctx, x - 1, y - 1, code, palette[bold ? (drawForeground + 8) : drawForeground], palette[(blink && icecolors) ? (drawBackground + 8) : drawBackground]);
                             if (++x === 80 + 1) {
