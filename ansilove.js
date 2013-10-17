@@ -1431,11 +1431,11 @@ var AnsiLove = (function () {
     }
 
     return {
-        "render": function (url, callback, options) {
-            render(url, callback, 0, options);
+        "render": function (url, callback, options, callbackFail) {
+            render(url, callback, 0, options, callbackFail);
         },
-        "splitRender": function (url, callback, splitRows, options) {
-            render(url, callback, splitRows || 27, options);
+        "splitRender": function (url, callback, splitRows, options, callbackFail) {
+            render(url, callback, splitRows || 27, options, callbackFail);
         },
         "animate": animate,
         "sauce": sauce
