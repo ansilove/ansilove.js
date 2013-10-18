@@ -1020,7 +1020,7 @@ var AnsiLove = (function () {
                     break;
                 default:
                     if (callbackFail) {
-                        callbackFail();
+                        callbackFail(http.status);
                     } else {
                         throw ("Could not retrieve: " + url);
                     }
