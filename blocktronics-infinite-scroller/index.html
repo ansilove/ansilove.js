@@ -2,7 +2,21 @@
 <html>
 <head>
     <meta http-equiv="Content-type" content="text/html; charset=utf-8">
-    <title>ansilove.js</title>
+    <meta name="viewport" content="user-scalable=no, width=320">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="blocktronics-logo.png"/>
+    <meta id="viewport" name="viewport" content="">
+<script>
+(function () {
+    "use strict";
+    if (navigator.userAgent.match(/iPhone/i) || navigator.userAgent.match(/iPod/i)) {
+        document.getElementById("viewport").setAttribute("content", "width=640; user-scalable=no");
+    } else if (navigator.userAgent.match(/iPad/i)) {
+        document.getElementById("viewport").setAttribute("content", "width=768; user-scalable=no");
+    }
+}());
+</script> 
+    <title>Blocktronics Infinite Scroller</title>
     <script src="../ansilove.js" type="text/javascript" charset="utf-8"></script>
     <style type="text/css" media="screen">
     body {
@@ -10,11 +24,7 @@
         margin: 0;
         overflow: hidden;
     }
-    .center {
-        margin: 0px auto;
-    }
     #ansi {
-        width: 1280px;
         margin: 0 auto;
     }
     #ansi canvas {
@@ -25,11 +35,15 @@
     </style>
 </head>
     <body>
-        <div id="ansi" class="center"></div>
+        <div id="ansi"></div>
         
 <script type="text/javascript">
 (function init() {
     "use strict";
+    var iDevice;
+    iDevice = (navigator.userAgent.match(/(iPhone|iPad|iPod)/i) !== null);
+
+    document.getElementById("ansi").style.width = iDevice ? "640px" : "1280px";
 
     function httpGetList(url, callback, callbackFail) {
         var http;
@@ -65,8 +79,10 @@
             }
 
             controller = AnsiLove.animate(randomAns(), function (canvas) {
-                canvas.style.width = (canvas.width) * 2 + "px";
-                canvas.style.height = (canvas.height) * 2 + "px";
+                if (!iDevice) {
+                    canvas.style.width = (canvas.width) * 2 + "px";
+                    canvas.style.height = (canvas.height) * 2 + "px";
+                }
                 document.getElementById("ansi").appendChild(canvas);
                 (function start() {
                     controller.play(14400, function () {
@@ -77,7 +93,7 @@
                         }());
                     }, false);
                 }());
-            }, {"font": "80x25", "2J": 0, "rows": Math.ceil(window.innerHeight / 32)}, function () {
+            }, {"font": "80x25", "2J": 0, "rows": Math.ceil(window.innerHeight / (iDevice ? 16 : 32))}, function () {
                 setTimeout(loadAns, 3000);
             });
         }());
