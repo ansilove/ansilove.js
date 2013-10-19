@@ -40,10 +40,11 @@
 <script type="text/javascript">
 (function init() {
     "use strict";
-    var iDevice;
+    var iDevice, ansiDiv;
     iDevice = (navigator.userAgent.match(/(iPhone|iPad|iPod)/i) !== null);
+    ansiDiv = document.getElementById("ansi");
 
-    document.getElementById("ansi").style.width = iDevice ? "640px" : "1280px";
+    ansiDiv.style.width = iDevice ? "640px" : "1280px";
 
     function httpGetList(url, callback, callbackFail) {
         var http;
@@ -59,7 +60,7 @@
                 default:
                     console.log(callbackFail);
                     if (callbackFail) {
-                        callbackFail();
+                        callbackFail(http.status);
                     } else {
                         throw ("Could not retrieve: " + url);
                     }
@@ -80,10 +81,10 @@
 
             controller = AnsiLove.animate(randomAns(), function (canvas) {
                 if (!iDevice) {
-                    canvas.style.width = (canvas.width) * 2 + "px";
-                    canvas.style.height = (canvas.height) * 2 + "px";
+                    canvas.style.width = (canvas.width * 2) + "px";
+                    canvas.style.height = (canvas.height * 2) + "px";
                 }
-                document.getElementById("ansi").appendChild(canvas);
+                ansiDiv.appendChild(canvas);
                 (function start() {
                     controller.play(14400, function () {
                         (function reload() {
@@ -93,7 +94,7 @@
                         }());
                     }, false);
                 }());
-            }, {"font": "80x25", "2J": 0, "rows": Math.ceil(window.innerHeight / (iDevice ? 16 : 32))}, function () {
+            }, {"2J": 0, "rows": Math.ceil(window.innerHeight / (iDevice ? 16 : 32))}, function () {
                 setTimeout(loadAns, 3000);
             });
         }());
