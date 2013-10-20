@@ -47,7 +47,7 @@ Ansilove.js has been tested on Safari, Firefox, and Chrome. Results may vary wid
     AnsiLove.render("example.bin", function (canvas, sauce) {
         document.body.appendChild(canvas);
         console.log(sauce);
-    }, {"font": "80x25", "bits": "8", "icecolors": 0, "columns": 80});
+    }, {"font": "80x25", "bits": "8", "icecolors": 0, "columns": 80, "thumbnail": 0});
 
 For extremely large files, which may silently fail on some browsers when producing a single canvas element, the `splitRender` function will produce an array of canvas elements, which can then be stacked vertically in the browser to simulate a single, contiguous display. The value of `27` in the following example is the maximum amount of text-rows in used in each element.
 
@@ -130,6 +130,13 @@ If a function is passed after the options object of any method, then it will be 
 ### Columns options
 
 Used for .BIN files only. Skip this option when converting other formats. The default is set at 160.
+
+### Thumbnail options
+
+- 0 (default, turned OFF)
+- 1 (turned ON)
+
+A thumbnail image is rendered instead of a full-size image. Each character of text is represented by a 1x2 pixel.
 
 ### SAUCE record
 
