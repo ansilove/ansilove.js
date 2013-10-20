@@ -677,7 +677,7 @@ var AnsiLove = (function () {
         };
     }
 
-    function bin(bytes, columns, icecolors) {
+    function bin(bytes, columns, icecolors, thumbnail) {
         var file, imageData, i;
 
         file = new File(bytes);
@@ -689,7 +689,7 @@ var AnsiLove = (function () {
         }
 
         return {
-            "font": undefined,
+            "font": Font.preset(thumbnail ? "thumbnail" : "80x25"),
             "height": Math.round(imageData.length / 2 / 160),
             "imageData": imageData,
             "palette": Palette.BIN,
@@ -897,7 +897,7 @@ var AnsiLove = (function () {
         }
 
         return {
-            "font": thumbnail ? Font.preset("thumbnail") : Font.preset("80x25"),
+            "font": Font.preset(thumbnail ? "thumbnail" : "80x25"),
             "height": imageData.getHeight(),
             "imageData": imageData.getData(),
             "palette": Palette.BIN,
@@ -1091,7 +1091,7 @@ var AnsiLove = (function () {
         }
 
         return {
-            "font": thumbnail ? Font.preset("thumbnail") : Font.preset("80x25"),
+            "font": Font.preset(thumbnail ? "thumbnail" : "80x25"),
             "imageData": imageData.getData(),
             "palette": palette,
             "width": columns,
@@ -1100,7 +1100,7 @@ var AnsiLove = (function () {
         };
     }
 
-    function asc(bytes) {
+    function asc(bytes, thumbnail) {
         var file, imageData, code, x, y;
 
         file = new File(bytes);
@@ -1124,6 +1124,7 @@ var AnsiLove = (function () {
         }
 
         return {
+            "font": Font.preset(thumbnail ? "thumbnail" : "80x25"),
             "imageData": imageData.getData(),
             "palette": Palette.ASC_PC,
             "width": 80,
