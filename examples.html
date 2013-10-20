@@ -1,0 +1,46 @@
+---
+layout: default
+---
+
+<script type="text/javascript" charset="utf-8">
+(function () {
+    "use strict";
+    var ANS, i;
+    ANS = [
+        { "url": "ans/ns-bp09.ans", "bits": "9", "font": "80x25", "text": "Example ANSi (Drawn by Ansichrist, April 2009)" },
+        { "url": "ans/we-alove.ans", "bits": "9", "font": "80x25", "text": "Example ANSi (Drawn by Enzo and Cleaner, August 2013)" },
+        { "url": "ans/yop-ANSilove.ans", "bits": "8", "font": "topaz500+", "text": "Example ASCii (Amiga Font ON) (Drawn by Yop, March 2006)" },
+        { "url": "ans/bym-ansilove.ans", "bits": "9", "font": "80x25", "text": "Example ANSi (Drawn by BYM, August 2013)" },
+        { "url": "ans/cbn-ansilove.ans", "bits": "8", "font": "amiga", "text": "Example ASCii (Amiga Font ON) (Drawn by Cubon, April 2011)" },
+        { "url": "ans/cl!-al03.ans", "bits": "9", "font": "80x25", "text": "Example ANSi (Drawn by Cleaner, July 2005)" },
+        { "url": "ans/dMG-ansilove.asc", "bits": "8", "font": "mosoul", "text": "Example ASCii (Amiga Font ON) (Drawn by dMG, April 2009)" },
+        { "url": "ans/gj-ansilove.ans", "bits": "9", "font": "80x25", "text": "Example ANSi (Drawn by Grymmjack, July 2013)" },
+        { "url": "ans/k1-alove.ans", "bits": "9", "font": "80x25", "text": "Example ANSi (Drawn by Knocturnal, June 2013)" },
+        { "url": "ans/no-alove.ans", "bits": "9", "font": "80x25", "text": "Example ANSi (Drawn by Noches, August 2013)" },
+        { "url": "ans/us-alov.ans", "bits": "9", "font": "80x25", "text": "Example ANSi (Drawn by Noches and Avenging Angel, January 2007)" }
+    ];
+    i = 0;
+    (function next() {
+        function doNext() {
+            if (++i < ANS.length) {
+                next();
+            }
+        }
+        AnsiLove.render(ANS[i].url, function (canvas) {
+            var container, h1;
+            container = document.createElement("div");
+            container.style.width = (canvas.width + 2) + "px";
+            container.style.padding = "16px";
+            container.style.border = "4px solid #fff";
+            container.style.cssMargin = "64px auto";
+            container.style.body = "1px solid #999";
+            h1 = document.createElement("h3");
+            h1.textContent = ANS[i].text;
+            container.appendChild(h1);
+            container.appendChild(canvas);
+            document.body.appendChild(container);
+            doNext();
+        }, { "bits": ANS[i].bits, "font": ANS[i].font }, doNext);
+    }());
+}());
+</script>

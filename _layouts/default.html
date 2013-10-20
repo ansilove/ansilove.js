@@ -3,65 +3,25 @@
 <head>
     <meta http-equiv="Content-type" content="text/html; charset=utf-8">
     <title>ansilove.js</title>
-    <script src="ansilove.js" type="text/javascript" charset="utf-8"></script>
-    <style type="text/css" media="screen">
-    body {
-        background: black;
-        font: 16px "Lucida Grande", "Trebuchet MS", Verdana, sans-serif;
-    }
-    body a {
-        color: #FF00FF;
-    }
-    .center {
-        margin: 16px auto;
-        background-color: black;
-        padding: 16px;
-    }
-    #header {
-        width: 720px;
-        height: 464px;
-        border: 1px solid #aaaaaa;
-    }
-    #example {
-        width: 720px;
-        height: 384px;
-        overflow: hidden;
-    }
-    .links, .links a {
-        text-align: center;
-        color: #AA0000;
-    }
-    .links a {
-        color: #FF0000;
-    }
-    #readme {
-        width: 720px;
-        margin: 0 auto;
-        color: white;
-    }
-    h2, h3 {
-        color: #AA0000;
-    }
-    pre {
-        font: 15px "Lucida Console", Monaco, monospace;
-        width: 720px;
-        border: 1px solid #AAAAAA;
-        padding: 8px;
-        margin: 0 auto;
-    }
-    </style>
+    <script src="ansilove.js" type="text/javascript"></script>
+    <link rel="stylesheet" href="css/style.css" type="text/css" media="screen">
 </head>
     <body>
-        <div id="header" class="center"></div>
+        <div id="header" class="center" onclick="document.location = './'"></div>
+
+<script type="text/javascript">
+AnsiLove.render("ans/cl!-al02.ans", function (canvas, sauce) {
+    document.getElementById("header").appendChild(canvas);
+}, {"bits": "9"});
+</script>
         
         <div class="links">
-            <a href="https://github.com/andyherbert/ansilove.js/archive/master.zip">Download Source</a> &bull; <a href="https://github.com/andyherbert/ansilove.js/tree/master">Visit on Github</a>
+            <a href="https://github.com/andyherbert/ansilove.js/archive/master.zip">Download Source</a> &bull; <a href="https://github.com/andyherbert/ansilove.js/tree/master">Visit on Github</a> &bull; <a href="examples.html">Examples</a>
         </div>
         
         <div id="readme">
             {{ content }}
         </div>
         
-    </div>
     </body>
 </html>

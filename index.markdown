@@ -8,10 +8,6 @@ layout: default
 <script type="text/javascript">
 var controller;
 
-AnsiLove.render("ans/cl!-al02.ans", function (canvas, sauce) {
-    document.getElementById("header").appendChild(canvas);
-}, {"bits": "9"});
-
 controller = AnsiLove.animate("ans/example_usage.ans", function (canvas, sauce) {
     document.getElementById("example").appendChild(canvas);
     controller.play(2800);

@@ -1086,6 +1086,9 @@ var AnsiLove = (function () {
                 file.read(1);
                 ++y;
                 x = 0;
+            } else if (code === 10) {
+                ++y;
+                x = 0;
             } else {
                 imageData.set(x++, y, code, 1);
             }

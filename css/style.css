@@ -1,0 +1,44 @@
+body {
+    background: black;
+    font: 16px "Lucida Grande", "Trebuchet MS", Verdana, sans-serif;
+}
+body a {
+    color: #FF00FF;
+}
+.center {
+    margin: 16px auto;
+    background-color: black;
+    padding: 16px;
+}
+#header {
+    width: 720px;
+    height: 464px;
+    cursor: pointer;
+}
+#example {
+    width: 720px;
+    height: 384px;
+    overflow: hidden;
+}
+.links, .links a {
+    text-align: center;
+    color: #AA0000;
+}
+.links a {
+    color: #FF0000;
+}
+#readme {
+    width: 720px;
+    margin: 0 auto;
+    color: white;
+}
+h2, h3 {
+    color: #AA0000;
+}
+pre {
+    font: 15px "Lucida Console", Monaco, monospace;
+    width: 720px;
+    border: 1px solid #AAAAAA;
+    padding: 8px;
+    margin: 0 auto;
+}
