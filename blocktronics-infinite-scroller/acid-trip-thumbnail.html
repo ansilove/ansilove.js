@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+    <title>Blocktronic's ACiD Trip</title>
+    <script src="../ansilove.js" type="text/javascript" charset="utf-8"></script>
+    <style type="text/css" media="screen">
+    body {
+        background-color: black;
+    }
+    </style>
+</head>
+    <body>
+        <div id="container"></div>
+<script type="text/javascript">
+AnsiLove.splitRender("packs/blocktronics_acid_trip/blocktronics_acid_trip.ans", function (canvases) {
+    "use strict";
+    var divContainer;
+    divContainer = document.getElementById("container");
+    divContainer.style.width = (canvases.length * 80) + "px";
+    divContainer.style.margin = "32px auto";
+    canvases.forEach(function (canvas) {
+        divContainer.appendChild(canvas);
+    });
+    document.body.appendChild(divContainer);
+}, 297, {"thumbnail": 1});
+</script>
+    </body>
+</html>
