@@ -8,7 +8,7 @@
         body {
             color: white;
             background-color: black;
-            font: 32px "Lucida Grande", "Trebuchet MS", Verdana, sans-serif;
+            font: 24px "Lucida Grande", "Trebuchet MS", Verdana, sans-serif;
         }
 
         .box {
@@ -24,6 +24,10 @@
 
         a {
             color: rgb(128, 128, 255);
+        }
+
+        strong {
+            color: red;
         }
 
         label {
@@ -44,8 +48,38 @@
         }
 
         #file-drop p {
-            margin-top: 20px;
+            margin: 10px 0px;
             text-align: center;
+        }
+
+        #filenames {
+            font-size: 15px;
+            text-align: center;
+            width: 480px;
+            margin: 4px auto;
+        }
+
+        #filenames p {
+            margin: 2px;
+            padding: 2px;
+            background-color: #444;
+            word-wrap: break-word;
+        }
+
+        #clear-filenames, #clear-output {
+            display: none;
+        }
+
+        #clear-filenames p, #clear-output p {
+            margin: 0;
+        }
+
+        #clear-filenames p a, #clear-output p a {
+            background-color: #990000;
+            color: black;
+            padding: 4px 8px;
+            text-decoration: none;
+            font-size: 15px;
         }
 
         #image-container {
@@ -53,6 +87,7 @@
             padding: 16px;
             margin: 32px auto;
             width: 720px;
+            text-align: center;
         }
 
         #image-container .subtext {
@@ -74,7 +109,7 @@
             <p class="subtext">Please take time to read the <a href="https://github.com/andyherbert/ansilove.js/blob/master/LICENSE">license</a> and <a href="http://andyherbert.github.io/ansilove.js/">documentation</a>.</p>
             <p class="subtext">The ‘font’ and ‘bits’ option only applies to ans, pcb, bin and tnd files, iCE colors are used only for ans, pcb, and bin files, and the ‘columns’ setting is for bin files only.</p>
             <p class="subtext">All files are processed locally in the browser, and no data is sent to a server.</p>
-            <p class="subtext">On some browsers rendering an extremely large image may silently fail unless the image is split over multiple images. Use the ‘Split’ option to divide the images by a pre-defined number of text-rows (setting this to 0 disables this option). These images can then be automatically combined horizontally by checking the ‘Combine’ option.</p>
+            <p class="subtext"><strong>Rendering an extremely large image on some browsers may silently fail unless the image is split over multiple images.</strong> Use the ‘Split’ option to divide the images by a pre-defined number of text-rows (setting the value to '0' disables this option). These images can then be automatically combined horizontally by checking the ‘Combine’ option.</p>
             <p>
                 <label for="bits">Bits: </label>
                 <select id="bits" name="bits">
@@ -158,20 +193,38 @@
 
         <div id="file-drop" class="box">
             <p>Step 2: Drop files here.</p>
+            <div id="filenames">
+            </div>
+            <div id="clear-filenames">
+                <p>
+                    <a id="clear-filenames-link" href="#">Remove all files from this list.</a>
+                </p>
+            </div>
             <p class="subtext">{.ans, .txt, .nfo, .asc, .diz, .ion, .adf, .bin, .idf, .pcb, .tnd, .xb}<br>Files with an unknown extension are assumed to be in .ans format.</p>
         </div>
 
         <div class="box">
-            <p>Step 3: Download files here.</p>
+            <p>Step 3: Hit <a id="render-link" href="#">Render</a>.</p>
         </div>
 
         <div id="image-container" class="box">
+            <div id="output">
+            </div>
+            <div id="clear-output">
+                <p>
+                    <a id="clear-output-link" href="#">Remove all files from this list.</a>
+                </p>
+            </div>
             <p class="subtext">If you think you have spotted a bug, then please consider <a href="mailto:andy.herbert@gmail.com?subject=AnsiLove.js">emailing the author</a>, and include any relevent file(s).</p>
         </div>
         
 <script type="text/javascript">
 (function () {
     "use strict";
+    var files;
+
+    files = [];
+
     document.getElementById("file-drop").addEventListener('dragover', function (evt) {
         evt.stopPropagation();
         evt.preventDefault();
@@ -187,19 +240,6 @@
             "thumbnail": parseInt(document.getElementById("thumbnail").value, 10),
             "filetype": filetype
         };
-    }
-
-    function addCanvas(name, canvas) {
-        var anchor, paragraph, container;
-        anchor = document.createElement("a");
-        anchor.href = canvas.toDataURL("image/png");
-        name = name + "_" + canvas.width + "x" + canvas.height + ".png";
-        anchor.download = name;
-        anchor.textContent = name;
-        paragraph = document.createElement("p");
-        paragraph.appendChild(anchor);
-        container = document.getElementById("image-container");
-        container.insertBefore(paragraph, container.firstChild);
     }
 
     function removeExtension(text) {
@@ -249,24 +289,73 @@
         reader.readAsArrayBuffer(file);
     }
 
-    function readFiles(files) {
-        var i;
-        i = files.length - 1;
-        (function next() {
-            readFile(files[i].name, files[i], function (name, canvas) {
-                addCanvas(name, canvas);
-                if (--i >= 0) {
-                    next();
-                }
-            });
-        }());
+    function clearElement(element) {
+        while (element.hasChildNodes()) {
+            element.removeChild(element.firstChild);
+        }
+    }
+
+    function clearFiles() {
+        while (files.length > 0) {
+            files.pop();
+        }
     }
 
     document.getElementById("file-drop").addEventListener('drop', function (evt) {
+        var i, p;
         evt.stopPropagation();
         evt.preventDefault();
-        readFiles(evt.dataTransfer.files);
+        for (i = 0; i < evt.dataTransfer.files.length; ++i) {
+            p = document.createElement("p");
+            p.textContent = evt.dataTransfer.files[i].name;
+            document.getElementById("filenames").appendChild(p);
+            files.push(evt.dataTransfer.files[i]);
+        }
+        document.getElementById("clear-filenames").style.display = "block";
     }, false);
+
+    document.getElementById("clear-filenames-link").onclick = function (evt) {
+        evt.preventDefault();
+        clearElement(document.getElementById("filenames"));
+        clearFiles();
+        document.getElementById("clear-filenames").style.display = "none";
+    };
+
+    document.getElementById("clear-output-link").onclick = function (evt) {
+        evt.preventDefault();
+        clearElement(document.getElementById("output"));
+        document.getElementById("clear-output").style.display = "none";
+    };
+
+    document.getElementById("render-link").onclick = function (evt) {
+        var i, anchor, paragraph, container;
+        evt.preventDefault();
+        document.getElementById("render-link").style.visibility = "hidden";
+        i = 0;
+
+        function nextItem() {
+            if (i < files.length) {
+                readFile(files[i].name, files[i], function (name, canvas) {
+                    anchor = document.createElement("a");
+                    anchor.href = canvas.toDataURL("image/png");
+                    name = name + "_" + canvas.width + "x" + canvas.height + ".png";
+                    anchor.download = name;
+                    anchor.textContent = name;
+                    paragraph = document.createElement("p");
+                    paragraph.appendChild(anchor);
+                    container = document.getElementById("output");
+                    container.insertBefore(paragraph, container.firstChild);
+                    document.getElementById("clear-output").style.display = "block";
+                    ++i;
+                    nextItem();
+                });
+            } else {
+                document.getElementById("render-link").style.visibility = "visible";
+            }
+        }
+
+        setTimeout(nextItem, 1000);
+    };
 }());
 </script>
         
