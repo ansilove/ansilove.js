@@ -343,8 +343,7 @@
                     anchor.textContent = name;
                     paragraph = document.createElement("p");
                     paragraph.appendChild(anchor);
-                    container = document.getElementById("output");
-                    container.insertBefore(paragraph, container.firstChild);
+                    document.getElementById("output").appendChild(paragraph);
                     document.getElementById("clear-output").style.display = "block";
                     ++i;
                     nextItem();
