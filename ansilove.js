@@ -1582,11 +1582,11 @@ var AnsiLove = (function () {
                 render(url, bytes, callback, splitRows || 27, options || {});
             }, callbackFail);
         },
-        "renderLocal": function (name, bytes, callback, options) {
-            render(name, bytes, callback, 0, options || {});
+        "renderBytes": function (bytes, callback, options) {
+            render("", bytes, callback, 0, options || {});
         },
-        "splitRenderLocal": function (name, bytes, callback, splitRows, options) {
-            render(name, bytes, callback, splitRows || 27, options || {});
+        "splitRenderBytes": function (bytes, callback, splitRows, options) {
+            render("", bytes, callback, splitRows || 27, options || {});
         },
         "animate": function (url, callback, options, callbackFail) {
             return animate(url, callback, options || {}, callbackFail);

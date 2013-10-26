@@ -3,7 +3,7 @@
     <head>
         <meta http-equiv="Content-type" content="text/html; charset=utf-8">
         <title>Try AnsiLove.js</title>
-        <script src="../ansilove.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../ansilove.js?" type="text/javascript" charset="utf-8"></script>
         <style type="text/css" media="screen">
         body {
             color: white;
@@ -178,13 +178,14 @@
         evt.dataTransfer.dropEffect = "copy";
     }, false);
 
-    function settings() {
+    function settings(filetype) {
         return {
             "bits": document.getElementById("bits").value,
             "font": document.getElementById("font").value,
             "icecolors": document.getElementById("icecolors").checked ? 1 : 0,
             "columns": parseInt(document.getElementById("columns").value, 10),
-            "thumbnail": parseInt(document.getElementById("thumbnail").value, 10)
+            "thumbnail": parseInt(document.getElementById("thumbnail").value, 10),
+            "filetype": filetype
         };
     }
 
@@ -207,6 +208,10 @@
         return (index >= 0) ? text.substring(0, index) : text;
     }
 
+    function getExtension(text) {
+        return text.split(".").pop().toLowerCase();
+    }
+
     function readFile(name, file, callback) {
         var reader;
         reader = new FileReader();
@@ -214,7 +219,7 @@
             var split;
             split = parseInt(document.getElementById("split").value, 10);
             if (split) {
-                AnsiLove.splitRenderLocal(name, new Uint8Array(data.target.result), function (canvases) {
+                AnsiLove.splitRenderBytes(new Uint8Array(data.target.result), function (canvases) {
                     var canvas, ctx, i, zeroPadding;
                     if (document.getElementById("combine").checked) {
                         canvas = document.createElement("canvas");
@@ -234,11 +239,11 @@
                             callback(removeExtension(name) + "_" + zeroPadding, canvases[i]);
                         }
                     }
-                }, split, settings());
+                }, split, settings(getExtension(name)));
             } else {
-                AnsiLove.renderLocal(name, new Uint8Array(data.target.result), function (canvas) {
+                AnsiLove.renderBytes(new Uint8Array(data.target.result), function (canvas) {
                     callback(removeExtension(name), canvas);
-                }, settings());
+                }, settings(getExtension(name)));
             }
         };
         reader.readAsArrayBuffer(file);
