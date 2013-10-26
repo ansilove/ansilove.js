@@ -250,13 +250,13 @@ var AnsiLove = (function () {
             }
         }());
 
-        function read(file, width, height, fontSize, amigaFont, thumbnail) {
+        function read(file, width, height, fontSize, amigaFont) {
             var bits, fontBitWidth, canvas, imageData;
 
             bits = new Uint8Array(width * height * fontSize);
             fontBitWidth = width * height;
             canvas = createCanvas(width, height);
-            imageData = thumbnail ? canvas.getContext("2d").getImageData(0, 0, 1, 2) : canvas.getContext("2d").getImageData(0, 0, width, height);
+            imageData = canvas.getContext("2d").getImageData(0, 0, width, height);
 
             (function () {
                 var i, j, k, v;
@@ -284,37 +284,12 @@ var AnsiLove = (function () {
                 ctx.putImageData(imageData, x * width, y * height, 0, 0, width, height);
             }
 
-            function drawThumbnail(ctx, x, y, charCode, fg, bg) {
-                var i, j, k;
-                for (i = 0, j = charCode * fontBitWidth, k = 0; i < fontBitWidth / 2; ++i, ++j) {
-                    if (bits[j]) {
-                        ++k;
-                    }
-                }
-                k = k / (fontBitWidth / 2);
-                imageData.data[0] = Math.round(fg[0] * k + bg[0] * (1 - k));
-                imageData.data[1] = Math.round(fg[1] * k + bg[1] * (1 - k));
-                imageData.data[2] = Math.round(fg[2] * k + bg[2] * (1 - k));
-                imageData.data[3] = 255;
-                for (k = 0; i < fontBitWidth; ++i, ++j) {
-                    if (bits[j]) {
-                        ++k;
-                    }
-                }
-                k = k / (fontBitWidth / 2);
-                imageData.data[4] = Math.round(fg[0] * k + bg[0] * (1 - k));
-                imageData.data[5] = Math.round(fg[1] * k + bg[1] * (1 - k));
-                imageData.data[6] = Math.round(fg[2] * k + bg[2] * (1 - k));
-                imageData.data[7] = 255;
-                ctx.putImageData(imageData, x, y * 2);
-            }
-
             function getHeight() {
-                return thumbnail ? 2 : height;
+                return height;
             }
 
             function getWidth() {
-                return thumbnail ? 1 : width;
+                return width;
             }
 
             function setWidth(newWidth) {
@@ -322,7 +297,7 @@ var AnsiLove = (function () {
             }
 
             return {
-                "draw": thumbnail ? drawThumbnail : draw,
+                "draw": draw,
                 "fontSize": fontSize,
                 "getHeight": getHeight,
                 "getWidth" : getWidth,
@@ -339,7 +314,7 @@ var AnsiLove = (function () {
         }
 
         function preset(name) {
-            var file, fontWidth, thumbnail;
+            var file, fontWidth;
             switch (name) {
             case "amiga":
                 name = "topaz";
@@ -353,25 +328,21 @@ var AnsiLove = (function () {
             case "topaz500plus":
                 name = "topaz500+";
                 break;
-            case "thumbnail":
-                name = "80x25";
-                thumbnail = true;
-                break;
             }
-            if (FONT_PRESETS.hasOwnProperty(name)) {
-                file = new File(base64ToBin(FONT_PRESETS[name].data));
-                fontWidth = file.get();
-                return read(file, fontWidth, (file.size - 1) / 256 * 8 / fontWidth, 256, FONT_PRESETS[name].amigaFont, thumbnail || false);
+            if (!FONT_PRESETS.hasOwnProperty(name)) {
+                return undefined;
             }
-            return undefined;
+            file = new File(base64ToBin(FONT_PRESETS[name].data));
+            fontWidth = file.get();
+            return read(file, fontWidth, (file.size - 1) / 256 * 8 / fontWidth, 256, FONT_PRESETS[name].amigaFont);
         }
 
-        function xbin(file, fontHeight, char512, thumbnail) {
-            return read(file, 8, fontHeight, char512 ? 512 : 256, false, thumbnail);
+        function xbin(file, fontHeight, char512) {
+            return read(file, 8, fontHeight, char512 ? 512 : 256, false);
         }
 
-        function font8x16x256(file, thumbnail) {
-            return read(file, 8, 16, 256, false, thumbnail);
+        function font8x16x256(file) {
+            return read(file, 8, 16, 256, false);
         }
 
         return {
@@ -402,8 +373,7 @@ var AnsiLove = (function () {
 
         function triplets16(file) {
             var pal, i, r, g, b;
-            pal = [];
-            for (i = 0; i < 16; ++i) {
+            for (pal = [], i = 0; i < 16; ++i) {
                 r = file.get();
                 g = file.get();
                 b = file.get();
@@ -414,8 +384,7 @@ var AnsiLove = (function () {
 
         function adf(file) {
             var pal, i, r, g, b;
-            pal = [];
-            for (i = 0; i < 64; ++i) {
+            for (pal = [], i = 0; i < 64; ++i) {
                 r = file.get();
                 g = file.get();
                 b = file.get();
@@ -516,8 +485,7 @@ var AnsiLove = (function () {
 
         this.getData = function () {
             var subarray, i;
-            subarray = imageData.subarray(0, width * (maxY + 1) * 9);
-            for (i = 0; i < subarray.length; i += 9) {
+            for (subarray = imageData.subarray(0, width * (maxY + 1) * 9), i = 0; i < subarray.length; i += 9) {
                 subarray[i + 4] = 255;
                 subarray[i + 8] = 255;
             }
@@ -529,20 +497,64 @@ var AnsiLove = (function () {
         };
     }
 
-    function display(raw, splitRows, altFont, px9) {
+    function scaleCanvas(sourceCanvas, chunkWidth, chunkHeight) {
+        var sourceCtx, sourceImageData, destCanvas, destCtx, destImageData, rgba;
+
+        function average(x, y) {
+            var i, j, chunkSize, r, g, b, a;
+            chunkSize = chunkWidth * chunkHeight;
+            for (i = r = g = b = a = 0, j = (y * sourceCanvas.width * chunkHeight + x * chunkWidth) * 4; i < chunkSize; ++i) {
+                r += sourceImageData.data[j++];
+                g += sourceImageData.data[j++];
+                b += sourceImageData.data[j++];
+                a += sourceImageData.data[j++];
+                if ((i + 1) % chunkWidth === 0) {
+                    j += (sourceCanvas.width - chunkWidth) * 4;
+                }
+            }
+            rgba[0] = Math.round(r / chunkSize);
+            rgba[1] = Math.round(g / chunkSize);
+            rgba[2] = Math.round(b / chunkSize);
+            rgba[3] = Math.round(a / chunkSize);
+        }
+
+        rgba = new Uint8Array(4);
+
+        sourceCtx = sourceCanvas.getContext("2d");
+        sourceImageData = sourceCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+
+        destCanvas = createCanvas(sourceCanvas.width / chunkWidth, sourceCanvas.height / chunkHeight);
+        destCtx = destCanvas.getContext("2d");
+        destImageData = destCtx.getImageData(0, 0, destCanvas.width, destCanvas.height);
+
+        (function () {
+            var i, x, y;
+            for (i = x = y = 0; i < destImageData.data.length; i += 4) {
+                average(x, y);
+                destImageData.data.set(rgba, i);
+                if (++x === destCanvas.width) {
+                    x = 0;
+                    ++y;
+                }
+            }
+        }());
+
+        destCtx.putImageData(destImageData, 0, 0);
+
+        return destCanvas;
+    }
+
+    function display(raw, splitRows, altFont, options) {
         var canvas, font, ctx, i, j, x, y, fg, bg;
 
         font = raw.font || altFont || Font.preset("80x25");
-        px9 = px9 || false;
 
-        if (font.getWidth() === 9 && px9 === false) {
+        if ((font.getWidth() === 9 && options.bits !== "9") || options.thumbnail) {
             font.setWidth(8);
         }
 
         if (splitRows) {
-            canvas = [];
-            ctx = [];
-            for (i = Math.ceil(raw.height / splitRows) - 1; i >= 0; --i) {
+            for (canvas = [], ctx = [], i = Math.ceil(raw.height / splitRows) - 1; i >= 0; --i) {
                 canvas[i] = createCanvas(raw.width * font.getWidth(), splitRows * font.getHeight());
                 ctx[i] = canvas[i].getContext("2d");
             }
@@ -580,10 +592,24 @@ var AnsiLove = (function () {
             }
         }
 
+        if (options.thumbnail) {
+            (function () {
+                var chunky;
+                chunky = Math.pow(2, 4 - options.thumbnail);
+                if (splitRows) {
+                    canvas = canvas.map(function (canvasItem) {
+                        return scaleCanvas(canvasItem, chunky, chunky);
+                    });
+                } else {
+                    canvas = scaleCanvas(canvas, chunky, chunky);
+                }
+            }());
+        }
+
         return canvas;
     }
 
-    function xb(bytes, thumbnail) {
+    function xb(bytes) {
         var file, header, palette, font, imageData;
 
         function XBinHeader(file) {
@@ -629,23 +655,19 @@ var AnsiLove = (function () {
                 count = p & 63;
                 switch (p >> 6) {
                 case 1:
-                    repeatChar = file.get();
-                    for (j = 0; j <= count; ++j) {
+                    for (repeatChar = file.get(), j = 0; j <= count; ++j) {
                         uncompressed[i++] = repeatChar;
                         uncompressed[i++] = file.get();
                     }
                     break;
                 case 2:
-                    repeatAttr = file.get();
-                    for (j = 0; j <= count; ++j) {
+                    for (repeatAttr = file.get(), j = 0; j <= count; ++j) {
                         uncompressed[i++] = file.get();
                         uncompressed[i++] = repeatAttr;
                     }
                     break;
                 case 3:
-                    repeatChar = file.get();
-                    repeatAttr = file.get();
-                    for (j = 0; j <= count; ++j) {
+                    for (repeatChar = file.get(), repeatAttr = file.get(), j = 0; j <= count; ++j) {
                         uncompressed[i++] = repeatChar;
                         uncompressed[i++] = repeatAttr;
                     }
@@ -664,7 +686,7 @@ var AnsiLove = (function () {
         header = new XBinHeader(file);
 
         palette = header.palette ? Palette.triplets16(file) : Palette.BIN;
-        font = header.font ? Font.xbin(file, header.fontHeight, header.char512, thumbnail) : Font.preset(thumbnail ? "thumbnail" : "80x25");
+        font = header.font ? Font.xbin(file, header.fontHeight, header.char512) : Font.preset("80x25");
         imageData = header.compressed ? uncompress(file, header.width, header.height) : file.read(header.width * header.height * 2);
 
         return {
@@ -677,28 +699,27 @@ var AnsiLove = (function () {
         };
     }
 
-    function bin(bytes, columns, icecolors, thumbnail) {
+    function bin(bytes, options) {
         var file, imageData, i;
 
         file = new File(bytes);
         imageData = file.read(file.size);
-        if (!icecolors) {
+        if (!options.icecolors) {
             for (i = 1; i < imageData.length; i += 2) {
                 imageData[i] = imageData[i] & 127;
             }
         }
 
         return {
-            "font": Font.preset(thumbnail ? "thumbnail" : "80x25"),
-            "height": Math.round(imageData.length / 2 / 160),
+            "height": Math.round(imageData.length / 2 / options.columns),
             "imageData": imageData,
             "palette": Palette.BIN,
-            "width": columns,
+            "width": options.columns,
             "sauce": file.sauce
         };
     }
 
-    function adf(bytes, thumbnail) {
+    function adf(bytes) {
         var file, palette, font, imageData;
 
         file = new File(bytes);
@@ -706,7 +727,7 @@ var AnsiLove = (function () {
         file.getC();
 
         palette = Palette.adf(file);
-        font = Font.font8x16x256(file, thumbnail);
+        font = Font.font8x16x256(file);
         imageData = file.read();
 
         return {
@@ -719,7 +740,7 @@ var AnsiLove = (function () {
         };
     }
 
-    function tnd(bytes, thumbnail) {
+    function tnd(bytes) {
         var file, x, y, imageData, charCode, fg, bg;
 
         function get32(file) {
@@ -779,7 +800,6 @@ var AnsiLove = (function () {
         }
 
         return {
-            "font": Font.preset(thumbnail ? "thumbnail" : "80x25"),
             "height": imageData.getHeight(),
             "imageData": imageData.getData(),
             "palette": undefined,
@@ -788,7 +808,7 @@ var AnsiLove = (function () {
         };
     }
 
-    function idf(bytes, thumbnail) {
+    function idf(bytes) {
         var file, width, palette, font, imageData, c, loop, ch, attr;
 
         file = new File(bytes);
@@ -816,7 +836,7 @@ var AnsiLove = (function () {
             }
         }
 
-        font = Font.font8x16x256(file, thumbnail);
+        font = Font.font8x16x256(file);
 
         palette = Palette.triplets16(file);
 
@@ -830,7 +850,7 @@ var AnsiLove = (function () {
         };
     }
 
-    function pcb(bytes, icecolors, thumbnail) {
+    function pcb(bytes, options) {
         var file, loop, charCode, bg, fg, x, y, imageData;
 
         file = new File(bytes);
@@ -869,7 +889,7 @@ var AnsiLove = (function () {
             case 64:
                 if (bytes[loop + 1] === 88) {
                     bg = bytes[loop + 2] - ((bytes[loop + 2] >= 65) ? 55 : 48);
-                    if (!icecolors && bg > 7) {
+                    if (!options.icecolors && bg > 7) {
                         bg -= 8;
                     }
                     fg = bytes[loop + 3] - ((bytes[loop + 3] >= 65) ? 55 : 48);
@@ -897,7 +917,6 @@ var AnsiLove = (function () {
         }
 
         return {
-            "font": Font.preset(thumbnail ? "thumbnail" : "80x25"),
             "height": imageData.getHeight(),
             "imageData": imageData.getData(),
             "palette": Palette.BIN,
@@ -906,7 +925,7 @@ var AnsiLove = (function () {
         };
     }
 
-    function ans(bytes, icecolors, mode, thumbnail) {
+    function ans(bytes, options) {
         var file, escaped, escapeCode, j, code, values, columns, imageData, topOfScreen, x, y, savedX, savedY, foreground, background, bold, blink, inverse, palette;
 
         function resetAttributes() {
@@ -937,7 +956,7 @@ var AnsiLove = (function () {
 
         escapeCode = "";
         escaped = false;
-        columns = (mode === "ced") ? 78 : 80;
+        columns = (options.mode === "ced") ? 78 : 80;
         imageData = new ScreenData(columns);
         topOfScreen = 0;
 
@@ -1062,13 +1081,13 @@ var AnsiLove = (function () {
                     if (code === 27 && file.peek() === 0x5B) {
                         escaped = true;
                     } else {
-                        if (mode === "ced") {
+                        if (options.mode === "ced") {
                             imageData.set(x - 1, y - 1 + topOfScreen, code, 1);
                         } else {
                             if (!inverse) {
-                                imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (foreground + 8) : foreground) + (blink && icecolors ? (background + 8 << 4) : (background << 4)));
+                                imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (foreground + 8) : foreground) + (blink && options.icecolors ? (background + 8 << 4) : (background << 4)));
                             } else {
-                                imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (background + 8) : background) + (blink && icecolors ? (foreground + 8 << 4) : (foreground << 4)));
+                                imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (background + 8) : background) + (blink && options.icecolors ? (foreground + 8 << 4) : (foreground << 4)));
                             }
                         }
                         if (++x === columns + 1) {
@@ -1079,7 +1098,7 @@ var AnsiLove = (function () {
             }
         }
 
-        switch (mode) {
+        switch (options.bits) {
         case "ced":
             palette = Palette.CED;
             break;
@@ -1091,7 +1110,6 @@ var AnsiLove = (function () {
         }
 
         return {
-            "font": Font.preset(thumbnail ? "thumbnail" : "80x25"),
             "imageData": imageData.getData(),
             "palette": palette,
             "width": columns,
@@ -1100,7 +1118,7 @@ var AnsiLove = (function () {
         };
     }
 
-    function asc(bytes, thumbnail) {
+    function asc(bytes) {
         var file, imageData, code, x, y;
 
         file = new File(bytes);
@@ -1124,7 +1142,6 @@ var AnsiLove = (function () {
         }
 
         return {
-            "font": Font.preset(thumbnail ? "thumbnail" : "80x25"),
             "imageData": imageData.getData(),
             "palette": Palette.ASC_PC,
             "width": 80,
@@ -1161,15 +1178,12 @@ var AnsiLove = (function () {
 
     function trimColumns(data) {
         var i, height, j, maxX, imageData;
-        maxX = 0;
-        height = data.imageData.length / 2 / data.width;
-        for (i = 0; i < data.imageData.length; i += 2) {
+        for (maxX = 0, height = data.imageData.length / 2 / data.width, i = 0; i < data.imageData.length; i += 2) {
             if (data.imageData[i]) {
                 maxX = Math.max((i / 2) % data.width, maxX);
             }
         }
-        imageData = new Uint8Array((maxX + 1) * height * 2);
-        for (i = j = 0; i < data.imageData.length; i += 2) {
+        for (imageData = new Uint8Array((maxX + 1) * height * 2), i = j = 0; i < data.imageData.length; i += 2) {
             if (i / 2 % data.width <= maxX) {
                 imageData[j++] = data.imageData[i];
                 imageData[j++] = data.imageData[i + 1];
@@ -1180,59 +1194,59 @@ var AnsiLove = (function () {
         return data;
     }
 
-    function render(url, callback, splitRows, options, callbackFail) {
-        var icecolors, bits, columns, font, thumbnail;
-        if (options) {
-            icecolors = options.icecolors;
-            bits = options.bits;
-            columns = options.columns;
-            font = options.font;
-            thumbnail = options.thumbnail;
+    function render(name, bytes, callback, splitRows, options) {
+        var data;
+
+        options.icecolors = options.icecolors || 0;
+        options.bits = options.bits || "8";
+        options.columns = options.columns || 160;
+        options.font = options.font || "80x25";
+        options.thumbnail = options.thumbnail || 0;
+
+        if (options.thumbnail < 0 || options.thumbnail > 3) {
+            options.thumbnail = 0;
         }
-        httpGet(url, function (bytes) {
-            var extension, data;
-            extension = url.split(".").pop().toLowerCase();
-            switch (extension) {
-            case "txt":
-            case "nfo":
-            case "asc":
-                data = asc(bytes, thumbnail === 1);
-                callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
-                break;
-            case "diz":
-            case "ion":
-                data = trimColumns(asc(bytes, thumbnail === 1));
-                callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
-                break;
-            case "adf":
-                data = adf(bytes, thumbnail === 1);
-                callback(display(data, splitRows), data.sauce);
-                break;
-            case "bin":
-                data = bin(bytes, columns || 160, icecolors === 1, thumbnail === 1);
-                callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
-                break;
-            case "idf":
-                data = idf(bytes, thumbnail === 1);
-                callback(display(data, splitRows), data.sauce);
-                break;
-            case "pcb":
-                data = pcb(bytes, icecolors === 1, thumbnail === 1);
-                callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
-                break;
-            case "tnd":
-                data = tnd(bytes, thumbnail === 1);
-                callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
-                break;
-            case "xb":
-                data = xb(bytes, thumbnail === 1);
-                callback(display(data, splitRows), data.sauce);
-                break;
-            default:
-                data = ans(bytes, icecolors === 1, bits, thumbnail === 1);
-                callback(display(data, splitRows, Font.preset(font), bits === "9"), data.sauce);
-            }
-        }, callbackFail);
+
+        switch (name.split(".").pop().toLowerCase()) {
+        case "txt":
+        case "nfo":
+        case "asc":
+            data = asc(bytes);
+            callback(display(data, splitRows, Font.preset(options.font), options), data.sauce);
+            break;
+        case "diz":
+        case "ion":
+            data = trimColumns(asc(bytes));
+            callback(display(data, splitRows, Font.preset(options.font), options), data.sauce);
+            break;
+        case "adf":
+            data = adf(bytes);
+            callback(display(data, splitRows, undefined, options), data.sauce);
+            break;
+        case "bin":
+            data = bin(bytes, options);
+            callback(display(data, splitRows, Font.preset(options.font), options), data.sauce);
+            break;
+        case "idf":
+            data = idf(bytes);
+            callback(display(data, splitRows, undefined, options), data.sauce);
+            break;
+        case "pcb":
+            data = pcb(bytes, options);
+            callback(display(data, splitRows, Font.preset(options.font), options), data.sauce);
+            break;
+        case "tnd":
+            data = tnd(bytes);
+            callback(display(data, splitRows, Font.preset(options.font), options), data.sauce);
+            break;
+        case "xb":
+            data = xb(bytes);
+            callback(display(data, splitRows, undefined, options), data.sauce);
+            break;
+        default:
+            data = ans(bytes, options);
+            callback(display(data, splitRows, Font.preset(options.font), options), data.sauce);
+        }
     }
 
     function sauce(url, callback, callbackFail) {
@@ -1264,7 +1278,7 @@ var AnsiLove = (function () {
 
         rows = options.rows || 26;
 
-        font = options.thumbnail ? Font.preset("thumbnail") : (Font.preset(options.font) || Font.preset("80x25"));
+        font = Font.preset(options.font) || Font.preset("80x25");
 
         if (font.getWidth() === 9 && bits !== "9") {
             font.setWidth(8);
@@ -1542,7 +1556,7 @@ var AnsiLove = (function () {
     function animate(url, callback, options, callbackFail) {
         var ansimation;
         httpGet(url, function (bytes) {
-            ansimation = new Ansimation(bytes, options || {});
+            ansimation = new Ansimation(bytes, options);
             callback(ansimation.canvas, ansimation.sauce);
         }, callbackFail);
         return {
@@ -1559,12 +1573,24 @@ var AnsiLove = (function () {
 
     return {
         "render": function (url, callback, options, callbackFail) {
-            render(url, callback, 0, options, callbackFail);
+            httpGet(url, function (bytes) {
+                render(url, bytes, callback, 0, options || {});
+            }, callbackFail);
         },
         "splitRender": function (url, callback, splitRows, options, callbackFail) {
-            render(url, callback, splitRows || 27, options, callbackFail);
+            httpGet(url, function (bytes) {
+                render(url, bytes, callback, splitRows || 27, options || {});
+            }, callbackFail);
         },
-        "animate": animate,
+        "renderLocal": function (name, bytes, callback, options) {
+            render(name, bytes, callback, 0, options || {});
+        },
+        "splitRenderLocal": function (name, bytes, callback, splitRows, options) {
+            render(name, bytes, callback, splitRows || 27, options || {});
+        },
+        "animate": function (url, callback, options, callbackFail) {
+            return animate(url, callback, options || {}, callbackFail);
+        },
         "sauce": sauce
     };
 }());
