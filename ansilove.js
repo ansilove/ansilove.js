@@ -1207,7 +1207,7 @@ var AnsiLove = (function () {
             options.thumbnail = 0;
         }
 
-        switch (name.split(".").pop().toLowerCase()) {
+        switch (options.filetype || name.split(".").pop().toLowerCase()) {
         case "txt":
         case "nfo":
         case "asc":

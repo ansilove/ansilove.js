@@ -156,6 +156,23 @@ Used for .BIN files only. Skip this option when converting other formats. The de
 
 A thumbnail image is rendered instead of a full-size image. Does not apply when playing ansimations.
 
+### Filetype options
+
+- ans
+- txt
+- nfo
+- asc
+- diz
+- ion
+- adf
+- bin
+- idf
+- pcb
+- tnd
+- xb
+
+Instead of guessing the filetype based on the name or extension of the url, the chosen rendering method can be chosen from this list by using the option `"filetype": "<type>"`. Using this method, it is possible to display the raw data contained within a file by over-riding this property with `"asc"`.
+
 ### SAUCE record
 
 As well as a canvas element, a [SAUCE][3] record is returned as a Javascript object if one is found, and follows this format:
