@@ -134,9 +134,11 @@ Used for .BIN files only. Skip this option when converting other formats. The de
 ### Thumbnail options
 
 - 0 (default, turned OFF)
-- 1 (turned ON)
+- 1 (1/8 scale)
+- 2 (1/4 scale)
+- 3 (1/2 scale)
 
-A thumbnail image is rendered instead of a full-size image. Each character of text is represented by a 1x2 pixel.
+A thumbnail image is rendered instead of a full-size image. Does not apply when playing ansimations.
 
 ### SAUCE record
 
