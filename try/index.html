@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+        <title>Try AnsiLove.js</title>
+        <script src="../ansilove.js" type="text/javascript" charset="utf-8"></script>
+        <style type="text/css" media="screen">
+        body {
+            color: white;
+            background-color: black;
+            font: 32px "Lucida Grande", "Trebuchet MS", Verdana, sans-serif;
+        }
+
+        .box {
+            margin: 16px auto;
+            width: 752px;
+        }
+
+        .subtext {
+            padding: 0 16px;
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        a {
+            color: rgb(128, 128, 255);
+        }
+
+        label {
+            text-align: right;
+            display: inline-block;
+            width: 200px;
+        }
+
+        #options {
+            font-size: 16px;
+            margin: 0 auto;
+            border: 4px solid white;
+        }
+
+        #file-drop {
+            border: 2px dashed white;
+            padding: 2px;
+        }
+
+        #file-drop p {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        #image-container div {
+            border: 4px solid white;
+            padding: 16px;
+            margin: 32px auto;
+            width: 720px;
+            max-height: 480px;
+            overflow: scroll;
+        }
+
+        #image-container .subtext {
+            margin: 32px 0;
+        }
+
+        #image-container p {
+            font-size: 12px;
+            margin: 0px;
+        }
+        </style>
+    </head>
+    <body>
+        <div class="box">
+            Step 1: Choose options.
+        </div>
+        <form id="options" class="box">
+            <p class="subtext">Please take time to read the <a href="https://github.com/andyherbert/ansilove.js/blob/master/LICENSE">license</a> and <a href="http://andyherbert.github.io/ansilove.js/">documentation</a>.</p>
+            <p class="subtext">The ‘font’ and ‘bits’ option only applies to ans, pcb, bin and tnd files, iCE colors are used only for ans, pcb, and bin files, and the ‘columns’ setting is for bin files only.</p>
+            <p class="subtext">All files are processed locally in the browser, and no data is sent to a server.</p>
+            <p class="subtext">On some browsers rendering an extremely large image may silently fail unless the image is split over multiple images. Use the ‘Split’ option to divide the images by a pre-defined number of text-rows (setting this to 0 disables this option). These images can then be automatically combined horizontally by checking the ‘Combine’ option.</p>
+            <p>
+                <label for="bits">Bits: </label>
+                <select id="bits" name="bits">
+                    <optgroup label="PC">
+                        <option value="8" selected>8 (Default)</option>
+                        <option value="9">9</option>
+                    </optgroup>
+                    <optgroup label="Amiga">
+                        <option value="ced">ced</option>
+                        <option value="workbench">workbench</option>
+                    </optgroup>
+                </select>
+            </p>
+            <p>
+                <label for="font">Font: </label>
+                <select id="font" name="font">
+                    <optgroup label="PC">
+                        <option value="80x25" selected>80x25 (Default, code page 437)</option>
+                        <option value="80x50">80x50 (Code page 437, 80x50 mode)</option>
+                        <option value="armenian">armenian</option>
+                        <option value="baltic">baltic (Code page 775)</option>
+                        <option value="cyrillic">cyrillic (Code page 855)</option>
+                        <option value="french-canadian">french-canadian (Code page 863)</option>
+                        <option value="greek">greek (Code page 737)</option>
+                        <option value="greek-869">greek-869 (Code page 869)</option>
+                        <option value="hebrew">hebrew (Code page 862)</option>
+                        <option value="icelandic">icelandic (Code page 861)</option>
+                        <option value="latin1">latin1 (Code page 850)</option>
+                        <option value="latin2">latin2 (Code page 852)</option>
+                        <option value="nordic">nordic (Code page 865)</option>
+                        <option value="persian">persian (Iran System encoding standard)</option>
+                        <option value="portuguese">portuguese (Code page 860)</option>
+                        <option value="russian">russian (Code page 866)</option>
+                        <option value="terminus">terminus (Terminus font)</option>
+                        <option value="turkish">turkish (Code page 857)</option>
+                    </optgroup>
+                    <optgroup label="Amiga">
+                        <option value="amiga">amiga (alias to Topaz)</option>
+                        <option value="b-strict">b-strict (Original B-Strict font)</option>
+                        <option value="b-strict">b-strict (Original B-Struct font)</option>
+                        <option value="microknight">microknight (Original MicroKnight version)</option>
+                        <option value="microknight+">microknight+ (Modified MicroKnight version)</option>
+                        <option value="microknightplus">microknightplus (alias to MicroKnight + to be used in URLs)</option>
+                        <option value="mosoul">mosoul (Original mO’sOul font)</option>
+                        <option value="pot-noodle">pot-noodle (Original P0T-NOoDLE font)</option>
+                        <option value="topaz">topaz (Original Topaz Kickstart 2.x version)</option>
+                        <option value="topaz+">topaz+ (Modified Topaz Kickstart 2.x+ version)</option>
+                        <option value="topazplus">topazplus (alias to Topaz+ to be used in URLs)</option>
+                        <option value="topaz500">topaz500 (Original Topaz Kickstart 1.x version)</option>
+                        <option value="topaz500+">topaz500+ (Modified Topaz Kickstart 1.x version)</option>
+                        <option value="topaz500plus">topaz500plus (alias to Topaz500+ to be used in URLs)</option>
+                    </optgroup>
+                </select>
+            </p>
+            <p>
+                <label for="icecolors">iCE colors: </label>
+                <input id="icecolors" type="checkbox" name="icecolors">
+            </p>
+            <p>
+                <label for="columns">Columns: </label>
+                <input id="columns" type="number" name="columns" min="1" max="320" value="160">
+            </p>
+            <p>
+                <label for="thumbnail">Thumbnail: </label>
+                <select id="thumbnail" name="thumbnail">
+                    <option value="0" selected>0 (Default, no scaling)</option>
+                    <option value="1">1 (&#8539; size)</option>
+                    <option value="2">2 (&frac14; size)</option>
+                    <option value="3">3 (&frac12; size)</option>
+                </select>
+            </p>
+            <p>
+                <label for="split">Split (in text-rows): </label>
+                <input id="split" type="number" name="split" min="1" max="9999" value="0">
+            </p>
+            <p>
+                <label for="combine">Combine split images: </label>
+                <input id="combine" type="checkbox" name="combine">
+            </p>
+        </form>
+
+        <div id="file-drop" class="box">
+            <p>Step 2: Drop files here.</p>
+            <p class="subtext">{.ans, .txt, .nfo, .asc, .diz, .ion, .adf, .bin, .idf, .pcb, .tnd, .xb}<br>Files with an unknown extension are assumed to be in .ans format.</p>
+        </div>
+
+        <div class="box">
+            <p>Step 3: Download files here.</p>
+        </div>
+
+        <div id="image-container" class="box">
+            <p class="subtext">If you think you have spotted a bug, then please consider <a href="mailto:andy.herbert@gmail.com?subject=AnsiLove.js">emailing the author</a>, and include any relevent file(s).</p>
+        </div>
+        
+<script type="text/javascript">
+(function () {
+    "use strict";
+    document.getElementById("file-drop").addEventListener('dragover', function (evt) {
+        evt.stopPropagation();
+        evt.preventDefault();
+        evt.dataTransfer.dropEffect = "copy";
+    }, false);
+
+    function settings() {
+        return {
+            "bits": document.getElementById("bits").value,
+            "font": document.getElementById("font").value,
+            "icecolors": document.getElementById("icecolors").checked ? 1 : 0,
+            "columns": parseInt(document.getElementById("columns").value, 10),
+            "thumbnail": parseInt(document.getElementById("thumbnail").value, 10)
+        };
+    }
+
+    function addCanvas(name, canvas) {
+        var anchor, paragraph, container;
+        anchor = document.createElement("a");
+        anchor.href = canvas.toDataURL("image/png");
+        name = name + "_" + canvas.width + "x" + canvas.height + ".png";
+        anchor.download = name;
+        anchor.textContent = name;
+        paragraph = document.createElement("p");
+        paragraph.appendChild(anchor);
+        container = document.getElementById("image-container");
+        container.insertBefore(paragraph, container.firstChild);
+    }
+
+    function removeExtension(text) {
+        var index;
+        index = text.lastIndexOf(".");
+        return (index >= 0) ? text.substring(0, index) : text;
+    }
+
+    function readFile(name, file, callback) {
+        var reader;
+        reader = new FileReader();
+        reader.onload = function (data) {
+            var split;
+            split = parseInt(document.getElementById("split").value, 10);
+            if (split) {
+                AnsiLove.splitRenderLocal(name, new Uint8Array(data.target.result), function (canvases) {
+                    var canvas, ctx, i, zeroPadding;
+                    if (document.getElementById("combine").checked) {
+                        canvas = document.createElement("canvas");
+                        canvas.width = canvases[0].width * canvases.length;
+                        canvas.height = canvases[0].height;
+                        ctx = canvas.getContext("2d");
+                        for (i = 0; i < canvases.length; ++i) {
+                            ctx.drawImage(canvases[i], i * canvases[i].width, 0);
+                        }
+                        callback(removeExtension(name) + "_split", canvas);
+                    } else {
+                        for (i = canvases.length - 1; i >= 0; --i) {
+                            zeroPadding = i.toString(10);
+                            while (zeroPadding.length < 4) {
+                                zeroPadding = "0" + zeroPadding;
+                            }
+                            callback(removeExtension(name) + "_" + zeroPadding, canvases[i]);
+                        }
+                    }
+                }, split, settings());
+            } else {
+                AnsiLove.renderLocal(name, new Uint8Array(data.target.result), function (canvas) {
+                    callback(removeExtension(name), canvas);
+                }, settings());
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function readFiles(files) {
+        var i;
+        i = files.length - 1;
+        (function next() {
+            readFile(files[i].name, files[i], function (name, canvas) {
+                addCanvas(name, canvas);
+                if (--i >= 0) {
+                    next();
+                }
+            });
+        }());
+    }
+
+    document.getElementById("file-drop").addEventListener('drop', function (evt) {
+        evt.stopPropagation();
+        evt.preventDefault();
+        readFiles(evt.dataTransfer.files);
+    }, false);
+}());
+</script>
+        
+    </body>
+</html>
