@@ -271,7 +271,7 @@
                         }
                         callback(removeExtension(name) + "_split", canvas);
                     } else {
-                        for (i = canvases.length - 1; i >= 0; --i) {
+                        for (i = 0; i < canvases.length; ++i) {
                             zeroPadding = i.toString(10);
                             while (zeroPadding.length < 4) {
                                 zeroPadding = "0" + zeroPadding;
