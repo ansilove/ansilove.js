@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+        <title>Try AnsiLove.js</title>
+        <script src="../ansilove.js?" type="text/javascript"></script>
+        <script src="ansitube.js?" type="text/javascript"></script>
+        <link rel="stylesheet" href="ansitube.css?" type="text/css">
+    </head>
+    <body>
+        <div id="preview-overlay" class="overlay">
+            <div id="preview-container"></div>
+        </div>
+        <div class="box">
+            <p>Step 1: Choose options.</p>
+        </div>
+        <form id="options" class="box">
+            <p>
+                <label for="bits">Bits: </label>
+                <select id="bits" name="bits">
+                    <optgroup label="PC">
+                        <option value="8" selected>8 (Default)</option>
+                        <option value="9">9</option>
+                    </optgroup>
+                    <optgroup label="Amiga">
+                        <option value="ced">ced</option>
+                        <option value="workbench">workbench</option>
+                    </optgroup>
+                </select>
+            </p>
+            <p>
+                <label for="font">Font: </label>
+                <select id="font" name="font">
+                    <optgroup label="PC">
+                        <option value="80x25" selected>80x25 (Default, code page 437)</option>
+                        <option value="80x50">80x50 (Code page 437, 80x50 mode)</option>
+                        <option value="armenian">armenian</option>
+                        <option value="baltic">baltic (Code page 775)</option>
+                        <option value="cyrillic">cyrillic (Code page 855)</option>
+                        <option value="french-canadian">french-canadian (Code page 863)</option>
+                        <option value="greek">greek (Code page 737)</option>
+                        <option value="greek-869">greek-869 (Code page 869)</option>
+                        <option value="hebrew">hebrew (Code page 862)</option>
+                        <option value="icelandic">icelandic (Code page 861)</option>
+                        <option value="latin1">latin1 (Code page 850)</option>
+                        <option value="latin2">latin2 (Code page 852)</option>
+                        <option value="nordic">nordic (Code page 865)</option>
+                        <option value="persian">persian (Iran System encoding standard)</option>
+                        <option value="portuguese">portuguese (Code page 860)</option>
+                        <option value="russian">russian (Code page 866)</option>
+                        <option value="terminus">terminus (Terminus font)</option>
+                        <option value="turkish">turkish (Code page 857)</option>
+                    </optgroup>
+                    <optgroup label="Amiga">
+                        <option value="amiga">amiga (alias to Topaz)</option>
+                        <option value="b-strict">b-strict (Original B-Strict font)</option>
+                        <option value="b-strict">b-strict (Original B-Struct font)</option>
+                        <option value="microknight">microknight (Original MicroKnight version)</option>
+                        <option value="microknight+">microknight+ (Modified MicroKnight version)</option>
+                        <option value="microknightplus">microknightplus (alias to MicroKnight + to be used in URLs)</option>
+                        <option value="mosoul">mosoul (Original mO’sOul font)</option>
+                        <option value="pot-noodle">pot-noodle (Original P0T-NOoDLE font)</option>
+                        <option value="topaz">topaz (Original Topaz Kickstart 2.x version)</option>
+                        <option value="topaz+">topaz+ (Modified Topaz Kickstart 2.x+ version)</option>
+                        <option value="topazplus">topazplus (alias to Topaz+ to be used in URLs)</option>
+                        <option value="topaz500">topaz500 (Original Topaz Kickstart 1.x version)</option>
+                        <option value="topaz500+">topaz500+ (Modified Topaz Kickstart 1.x version)</option>
+                        <option value="topaz500plus">topaz500plus (alias to Topaz500+ to be used in URLs)</option>
+                    </optgroup>
+                </select>
+            </p>
+            <p>
+                <label for="icecolors">iCE colors: </label>
+                <input id="icecolors" type="checkbox" name="icecolors">
+            </p>
+            <p>
+                <label for="baudrate">Baud rate: </label>
+                <select id="baudrate" name="baudrate">
+                    <option value="2400">2400</option>
+                    <option value="4800">4800</option>
+                    <option value="9600">9600</option>
+                    <option value="14400">14400</option>
+                    <option value="19200">19200</option>
+                    <option value="28800">28800</option>
+                    <option value="38400">38400</option>
+                    <option value="56000">56000</option>
+                    <option value="57600">57600</option>
+                    <option value="115200" selected>115200 (Default)</option>
+                </select>
+            </p>
+        </form>
+        <div id="file-drop" class="box">
+            <p>Step 2: Drop ANSImation files here.</p>
+            <div id="filenames"></div>
+            <div id="clear-filenames">
+                <p>
+                    <a id="clear-filenames-link" href="#">Remove all files from this list.</a>
+                </p>
+            </div>
+            <p class="subtext">All files will be played in the order that they are added and then restart, until dismissed.</p>
+            <p class="subtext">All files are processed locally in the browser, and no data is sent to a server.</p>
+        </div>
+        <div class="box">
+            <p>Step 3: Hit <a id="play-link" href="#">Play</a></p>
+        </div>
+        <div class="box centered-text">
+            <p class="subtext">If you think you have spotted a bug, then please consider <a href="mailto:andy.herbert@gmail.com?subject=AnsiLove.js">emailing the author</a>, and include any relevent file(s).</p>
+            <p class="subtext">Please take time to read the <a href="https://github.com/andyherbert/ansilove.js/blob/master/LICENSE">license</a> and <a href="http://andyherbert.github.io/ansilove.js/">documentation</a>.</p>
+        </div>
+    </body>
+</html>
