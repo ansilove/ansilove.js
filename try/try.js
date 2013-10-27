@@ -106,32 +106,58 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("clear-output").style.display = "none";
     };
 
+    function previewImage(canvas) {
+        return function (evt) {
+            var divPreviewContainer;
+            evt.preventDefault();
+            divPreviewContainer = document.getElementById("preview-container");
+            clearElement(divPreviewContainer);
+            canvas.onclick = function () {
+                document.getElementById("preview-overlay").style.visibility = "hidden";
+            };
+            divPreviewContainer.appendChild(canvas);
+            divPreviewContainer.style.width = canvas.width + "px";
+            document.getElementById("preview-overlay").style.visibility = "visible";
+        };
+    }
+
     document.getElementById("render-link").onclick = function (evt) {
-        var i, anchor, paragraph;
+        var i, imageAnchor, previewAnchor, paragraph;
         evt.preventDefault();
-        document.getElementById("overlay").style.visibility = "visible";
+        document.getElementById("modal-overlay").style.visibility = "visible";
         i = 0;
 
         function nextItem() {
             if (i < files.length) {
                 readFile(files[i].name, files[i], function (name, canvas) {
-                    anchor = document.createElement("a");
-                    anchor.href = canvas.toDataURL("image/png");
+                    imageAnchor = document.createElement("a");
+                    imageAnchor.href = canvas.toDataURL("image/png");
                     name = name + "_" + canvas.width + "x" + canvas.height + ".png";
-                    anchor.download = name;
-                    anchor.textContent = name;
+                    imageAnchor.download = name;
+                    imageAnchor.textContent = name;
+                    previewAnchor = document.createElement("a");
+                    previewAnchor.textContent = "preview";
+                    previewAnchor.href = "#";
+                    previewAnchor.className = "preview-link";
+                    previewAnchor.onclick = previewImage(canvas);
                     paragraph = document.createElement("p");
-                    paragraph.appendChild(anchor);
+                    paragraph.appendChild(imageAnchor);
+                    paragraph.appendChild(previewAnchor);
                     document.getElementById("output").appendChild(paragraph);
                     document.getElementById("clear-output").style.display = "block";
                     ++i;
                     nextItem();
                 });
             } else {
-                document.getElementById("overlay").style.visibility = "hidden";
+                document.getElementById("modal-overlay").style.visibility = "hidden";
             }
         }
 
         setTimeout(nextItem, 1000);
+    };
+
+    document.getElementById("close-image-link").onclick = function (evt) {
+        evt.preventDefault();
+        document.getElementById("preview-overlay").style.visibility = "hidden";
     };
 });
