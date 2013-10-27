@@ -83,7 +83,6 @@ label {
 #image-container {
     border: 1px solid white;
     padding: 16px;
-    margin: 32px auto;
     width: 720px;
     text-align: center;
 }
@@ -149,4 +148,18 @@ label {
 
 .modal p {
     margin: 16px;
+}
+
+#render-link {
+    padding: 4px;
+    background-color: #44F;
+    color: white;
+    border: 1px solid #AAF;
+    text-decoration: none;
+    border-radius: 4px;
+}
+
+#render-link:hover {
+    border: 2px solid white;
+    padding: 3px;
 }
