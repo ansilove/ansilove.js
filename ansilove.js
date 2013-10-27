@@ -1591,6 +1591,26 @@ var AnsiLove = (function () {
         "animate": function (url, callback, options, callbackFail) {
             return animate(url, callback, options || {}, callbackFail);
         },
+        "animateBytes": function (bytes, callback, options) {
+            var ansimation;
+            ansimation = new Ansimation(bytes, options || {});
+            setTimeout(function () {
+                callback(ansimation.canvas, ansimation.sauce);
+            }, 250);
+            return {
+                "play": function (baud, callback, clearScreen) {
+                    ansimation.play(baud, callback, clearScreen);
+                },
+                "stop": function () {
+                    ansimation.stop();
+                },
+                "load": function (url, callback, callbackFail) {
+                    httpGet(url, function (bytes) {
+                        ansimation.load(bytes, callback);
+                    }, callbackFail);
+                }
+            };
+        },
         "sauce": sauce
     };
 }());
