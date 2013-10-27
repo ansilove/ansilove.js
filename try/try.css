@@ -1,0 +1,124 @@
+body {
+    color: white;
+    background-color: black;
+    font: 24px "Lucida Grande", "Trebuchet MS", Verdana, sans-serif;
+}
+
+.box {
+    margin: 16px auto;
+    width: 752px;
+}
+
+.subtext {
+    padding: 0 16px;
+    font-size: 12px;
+    color: #aaa;
+}
+
+a {
+    color: rgb(128, 128, 255);
+}
+
+strong {
+    color: red;
+}
+
+label {
+    text-align: right;
+    display: inline-block;
+    width: 270px;
+}
+
+#options {
+    font-size: 16px;
+    margin: 0 auto;
+    border: 4px solid white;
+}
+
+#file-drop {
+    border: 2px dashed white;
+    padding: 2px;
+}
+
+#file-drop p {
+    margin: 10px 0px;
+    text-align: center;
+}
+
+#filenames {
+    font-size: 15px;
+    text-align: center;
+    width: 480px;
+    margin: 4px auto;
+}
+
+#filenames p {
+    margin: 2px;
+    padding: 2px;
+    background-color: #444;
+    word-wrap: break-word;
+}
+
+#clear-filenames, #clear-output {
+    display: none;
+}
+
+#clear-filenames p, #clear-output p {
+    margin: 0;
+}
+
+#clear-filenames p a, #clear-output p a {
+    background-color: #990000;
+    color: black;
+    padding: 4px 8px;
+    text-decoration: none;
+    font-size: 15px;
+}
+
+#image-container {
+    border: 1px solid white;
+    padding: 16px;
+    margin: 32px auto;
+    width: 720px;
+    text-align: center;
+}
+
+#image-container .subtext {
+    font-size: 12px;
+    margin: 16px 0;
+}
+
+#image-container p {
+    font-size: 18px;
+    margin: 8px 0px;
+}
+
+#overlay {
+    position: fixed;
+    background-color: rgba(0, 0, 0, 0.8);
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    visibility: hidden;
+}
+
+.modal {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 450px;
+    height: 200px;
+    margin-top: -102px;
+    margin-left: -227px;
+    background-color: black;
+    border: 4px solid #999;
+    text-align: center;
+}
+
+.modal p {
+    font-size: 32px;
+    margin: 0;
+    line-height: 200px;
+}
