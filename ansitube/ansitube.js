@@ -4,6 +4,84 @@ document.addEventListener("DOMContentLoaded", function () {
 
     files = [];
 
+    function httpGetJson(url, callback, callbackFail) {
+        var http = new XMLHttpRequest();
+        http.open("GET", url, true);
+        http.onreadystatechange = function () {
+            if (http.readyState === 4) {
+                switch (http.status) {
+                case 0:
+                case 200:
+                    callback(JSON.parse(http.response));
+                    break;
+                default:
+                    if (callbackFail) {
+                        callbackFail(http.status);
+                    } else {
+                        throw ("Could not retrieve: " + url);
+                    }
+                }
+            }
+        };
+        http.setRequestHeader("Content-Type", "application/octet-stream");
+        http.responseType = "text";
+        http.send();
+    }
+
+    function clearElement(element) {
+        while (element.hasChildNodes()) {
+            element.removeChild(element.firstChild);
+        }
+    }
+
+    function animate(controller, baudrate, canvas, callback) {
+        var divPreviewContainer, divPreviewOverlay, timer;
+        divPreviewOverlay = document.getElementById("preview-overlay");
+        divPreviewOverlay.style.visibility = "visible";
+        divPreviewContainer = document.getElementById("preview-container");
+        clearElement(divPreviewContainer);
+        divPreviewContainer.appendChild(canvas);
+        divPreviewContainer.style.width = canvas.width + "px";
+        divPreviewContainer.style.height = canvas.height + "px";
+        controller.play(baudrate, function () {
+            timer = setTimeout(callback, 3000);
+        });
+        divPreviewOverlay.onclick = function () {
+            clearTimeout(timer);
+            controller.stop();
+            divPreviewOverlay.style.visibility = "hidden";
+            document.body.style.overflow = "auto";
+        };
+    }
+
+    function playTube(url, bits, font, icecolors, baudrate) {
+        return function () {
+            var controller;
+            controller = AnsiLove.animate(url, function (canvas) {
+                (function play() {
+                    animate(controller, baudrate, canvas, play);
+                }());
+            }, {"bits": bits, "font": font, "icecolors": icecolors});
+        };
+    }
+
+    httpGetJson("tubes.json", function (tubes) {
+        var i, divTubeLinks, paragraph;
+        i = 0;
+        divTubeLinks = document.getElementsByClassName("tube-link");
+        (function next() {
+            if (i < tubes.length) {
+                divTubeLinks[i].style.backgroundImage = "url(" + tubes[i].thumb + ")";
+                paragraph = document.createElement("p");
+                paragraph.textContent = tubes[i].url.split("/").pop() + ", " + tubes[i].author;
+                divTubeLinks[i].appendChild(paragraph);
+                divTubeLinks[i].onclick = playTube(tubes[i].url, tubes[i].bits, tubes[i].font, tubes[i].icecolors, tubes[i].baudrate);
+                ++i;
+                next();
+            }
+        }());
+    });
+
     document.getElementById("file-drop").addEventListener("dragover", function (evt) {
         evt.stopPropagation();
         evt.preventDefault();
@@ -18,34 +96,13 @@ document.addEventListener("DOMContentLoaded", function () {
         };
     }
 
-    function clearElement(element) {
-        while (element.hasChildNodes()) {
-            element.removeChild(element.firstChild);
-        }
-    }
-
     function readFile(file, callback) {
         var reader;
         reader = new FileReader();
         reader.onload = function (data) {
-            var controller, divPreviewContainer, divPreviewOverlay, timer;
+            var controller;
             controller = AnsiLove.animateBytes(new Uint8Array(data.target.result), function (canvas) {
-                divPreviewOverlay = document.getElementById("preview-overlay");
-                divPreviewOverlay.style.visibility = "visible";
-                divPreviewContainer = document.getElementById("preview-container");
-                clearElement(divPreviewContainer);
-                divPreviewContainer.appendChild(canvas);
-                divPreviewContainer.style.width = canvas.width + "px";
-                divPreviewContainer.style.height = canvas.height + "px";
-                controller.play(parseInt(document.getElementById("baudrate").value, 10), function () {
-                    timer = setTimeout(callback, 3000);
-                });
-                divPreviewOverlay.onclick = function () {
-                    clearTimeout(timer);
-                    controller.stop();
-                    document.getElementById("preview-overlay").style.visibility = "hidden";
-                    document.body.style.overflow = "auto";
-                };
+                animate(controller, parseInt(document.getElementById("baudrate").value, 10), canvas, callback);
             }, settings());
         };
         reader.readAsArrayBuffer(file);
