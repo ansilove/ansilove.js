@@ -136,6 +136,7 @@ document.addEventListener("DOMContentLoaded", function () {
             divPreviewContainer.appendChild(canvas);
             divPreviewContainer.style.width = canvas.width + "px";
             document.getElementById("preview-overlay").style.visibility = "visible";
+            document.body.style.overflow = "hidden";
         };
     }
 
@@ -155,6 +156,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var i, imageAnchor, previewAnchor, removeAnchor, paragraph;
         evt.preventDefault();
         document.getElementById("modal-overlay").style.visibility = "visible";
+        document.body.style.overflow = "hidden";
         i = 0;
 
         function nextItem() {
@@ -191,6 +193,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             } else {
                 document.getElementById("modal-overlay").style.visibility = "hidden";
+                document.body.style.overflow = "auto";
             }
         }
 
@@ -199,5 +202,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document.getElementById("preview-overlay").onclick = function () {
         document.getElementById("preview-overlay").style.visibility = "hidden";
+        document.body.style.overflow = "auto";
     };
 });
