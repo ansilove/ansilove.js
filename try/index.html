@@ -13,19 +13,18 @@
                 <p>
                     Working, please wait...
                 </p>
+                <p class="subtext"><strong>Rendering an extremely large image on some browsers may silently fail unless the image is split over multiple images.</strong></p>
+                <p class="subtext">These images can then be automatically combined horizontally by checking the ‘Combine’ option.</p>
             </div>
         </div>
         <div id="preview-overlay" class="overlay">
             <div id="preview-container"></div>
         </div>
         <div class="box">
-            Step 1: Choose options.
+            <p>Step 1: Choose options.</p>
         </div>
         <form id="options" class="box">
-            <p class="subtext">Please take time to read the <a href="https://github.com/andyherbert/ansilove.js/blob/master/LICENSE">license</a> and <a href="http://andyherbert.github.io/ansilove.js/">documentation</a>.</p>
-            <p class="subtext">The ‘font’ and ‘bits’ option only applies to ans, pcb, bin and tnd files, iCE colors are used only for ans, pcb, and bin files, and the ‘columns’ setting is for bin files only.</p>
-            <p class="subtext">All files are processed locally in the browser, and no data is sent to a server.</p>
-            <p class="subtext"><strong>Rendering an extremely large image on some browsers may silently fail unless the image is split over multiple images.</strong> Use the ‘Split’ option to divide the images by a pre-defined number of text-rows (setting the value to '0' disables this option). These images can then be automatically combined horizontally by checking the ‘Combine’ option.</p>
+            <p class="subtext">The ‘bits’ and ‘font’ option only applies when rendering ans, pcb, bin and tnd files.</p>
             <p>
                 <label for="bits">Bits: </label>
                 <select id="bits" name="bits">
@@ -80,10 +79,12 @@
                     </optgroup>
                 </select>
             </p>
+            <p class="subtext">The iCE colors option is reserved for ans, pcb, and bin files.</p>
             <p>
                 <label for="icecolors">iCE colors: </label>
                 <input id="icecolors" type="checkbox" name="icecolors">
             </p>
+            <p class="subtext">The ‘columns’ setting is used when generating images base on .bin files.</p>
             <p>
                 <label for="columns">Columns: </label>
                 <input id="columns" type="number" name="columns" min="1" max="320" value="160">
@@ -97,10 +98,12 @@
                     <option value="3">3 (&frac12; size)</option>
                 </select>
             </p>
+            <p class="subtext">Generating multiple images is the only way to view extremely long files in certain browsers. This setting is measured in text-rows, and using a value of ‘0’ disables the option.</p>
             <p>
-                <label for="split">Split (in text-rows): </label>
+                <label for="split">Split into multiple images: </label>
                 <input id="split" type="number" name="split" min="1" max="9999" value="0">
             </p>
+            <p class="subtext">Using this option will combine each split image into a single file by tiling the images horizontally.</p>
             <p>
                 <label for="combine">Combine split images: </label>
                 <input id="combine" type="checkbox" name="combine">
@@ -116,6 +119,7 @@
                 </p>
             </div>
             <p class="subtext">{.ans, .txt, .nfo, .asc, .diz, .ion, .adf, .bin, .idf, .pcb, .tnd, .xb}<br>Files with an unknown extension are assumed to be in .ans format.</p>
+            <p class="subtext">All files are processed locally in the browser, and no data is sent to a server.</p>
         </div>
 
         <div class="box">
@@ -130,6 +134,7 @@
                 </p>
             </div>
             <p class="subtext">If you think you have spotted a bug, then please consider <a href="mailto:andy.herbert@gmail.com?subject=AnsiLove.js">emailing the author</a>, and include any relevent file(s).</p>
+            <p class="subtext">Please take time to read the <a href="https://github.com/andyherbert/ansilove.js/blob/master/LICENSE">license</a> and <a href="http://andyherbert.github.io/ansilove.js/">documentation</a>.</p>
         </div>
     </body>
 </html>
