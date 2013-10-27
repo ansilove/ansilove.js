@@ -1542,6 +1542,10 @@ var AnsiLove = (function () {
                 }
                 drawChunk();
             },
+            "stop": function () {
+                clearTimeout(timer);
+                clearInterval(interval);
+            },
             "load": function (bytes, callback) {
                 clearTimeout(timer);
                 file = new File(bytes);
@@ -1562,6 +1566,9 @@ var AnsiLove = (function () {
         return {
             "play": function (baud, callback, clearScreen) {
                 ansimation.play(baud, callback, clearScreen);
+            },
+            "stop": function () {
+                ansimation.stop();
             },
             "load": function (url, callback, callbackFail) {
                 httpGet(url, function (bytes) {
