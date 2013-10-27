@@ -54,14 +54,18 @@ document.addEventListener("DOMContentLoaded", function () {
         };
     }
 
-    function playTube(url, bits, font, icecolors, baudrate) {
+    function playTube(url, bits, font, icecolors, baudrate, element) {
         return function () {
             var controller;
+            element.style.opacity = "0.5";
             controller = AnsiLove.animate(url, function (canvas) {
+                element.style.opacity = "1";
                 (function play() {
                     animate(controller, baudrate, canvas, play);
                 }());
-            }, {"bits": bits, "font": font, "icecolors": icecolors});
+            }, {"bits": bits, "font": font, "icecolors": icecolors}, function () {
+                element.style.opacity = "1";
+            });
         };
     }
 
@@ -75,7 +79,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 paragraph = document.createElement("p");
                 paragraph.textContent = tubes[i].url.split("/").pop() + ", " + tubes[i].author;
                 divTubeLinks[i].appendChild(paragraph);
-                divTubeLinks[i].onclick = playTube(tubes[i].url, tubes[i].bits, tubes[i].font, tubes[i].icecolors, tubes[i].baudrate);
+                divTubeLinks[i].onclick = playTube(tubes[i].url, tubes[i].bits, tubes[i].font, tubes[i].icecolors, tubes[i].baudrate, divTubeLinks[i]);
                 ++i;
                 next();
             }
