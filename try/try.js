@@ -80,14 +80,35 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
+    function removeFile(index, element) {
+        return function (evt) {
+            var divFilenames;
+            evt.preventDefault();
+            divFilenames = document.getElementById("filenames");
+            delete files[index];
+            divFilenames.removeChild(element);
+            if (divFilenames.childNodes.length === 0) {
+                document.getElementById("clear-filenames").style.display = "none";
+            }
+        };
+    }
+
     document.getElementById("file-drop").addEventListener('drop', function (evt) {
-        var i, p;
+        var i, p, span, removeAnchor;
         evt.stopPropagation();
         evt.preventDefault();
         for (i = 0; i < evt.dataTransfer.files.length; ++i) {
+            span = document.createElement("span");
+            span.textContent = evt.dataTransfer.files[i].name;
+            removeAnchor = document.createElement("a");
+            removeAnchor.href = "#";
+            removeAnchor.textContent = "X";
+            removeAnchor.className = "remove-link";
             p = document.createElement("p");
-            p.textContent = evt.dataTransfer.files[i].name;
+            p.appendChild(span);
+            p.appendChild(removeAnchor);
             document.getElementById("filenames").appendChild(p);
+            removeAnchor.onclick = removeFile(files.length, p);
             files.push(evt.dataTransfer.files[i]);
         }
         document.getElementById("clear-filenames").style.display = "block";
@@ -121,43 +142,61 @@ document.addEventListener("DOMContentLoaded", function () {
         };
     }
 
+    function removeLink(element) {
+        return function (evt) {
+            var divOutput;
+            evt.preventDefault();
+            divOutput = document.getElementById("output");
+            divOutput.removeChild(element);
+            if (divOutput.childNodes.length === 0) {
+                document.getElementById("clear-output").style.display = "none";
+            }
+        };
+    }
+
     document.getElementById("render-link").onclick = function (evt) {
-        var i, imageAnchor, previewAnchor, paragraph;
+        var i, imageAnchor, previewAnchor, removeAnchor, paragraph;
         evt.preventDefault();
         document.getElementById("modal-overlay").style.visibility = "visible";
         i = 0;
 
         function nextItem() {
             if (i < files.length) {
-                readFile(files[i].name, files[i], function (name, canvas) {
-                    imageAnchor = document.createElement("a");
-                    imageAnchor.href = canvas.toDataURL("image/png");
-                    name = name + "_" + canvas.width + "x" + canvas.height + ".png";
-                    imageAnchor.download = name;
-                    imageAnchor.textContent = name;
-                    previewAnchor = document.createElement("a");
-                    previewAnchor.textContent = "preview";
-                    previewAnchor.href = "#";
-                    previewAnchor.className = "preview-link";
-                    previewAnchor.onclick = previewImage(canvas);
-                    paragraph = document.createElement("p");
-                    paragraph.appendChild(imageAnchor);
-                    paragraph.appendChild(previewAnchor);
-                    document.getElementById("output").appendChild(paragraph);
-                    document.getElementById("clear-output").style.display = "block";
+                if (files[i] !== undefined) {
+                    readFile(files[i].name, files[i], function (name, canvas) {
+                        imageAnchor = document.createElement("a");
+                        imageAnchor.href = canvas.toDataURL("image/png");
+                        name = name + "_" + canvas.width + "x" + canvas.height + ".png";
+                        imageAnchor.download = name;
+                        imageAnchor.textContent = name;
+                        previewAnchor = document.createElement("a");
+                        previewAnchor.textContent = "preview";
+                        previewAnchor.href = "#";
+                        previewAnchor.className = "preview-link";
+                        previewAnchor.onclick = previewImage(canvas);
+                        removeAnchor = document.createElement("a");
+                        removeAnchor.href = "#";
+                        removeAnchor.textContent = "X";
+                        removeAnchor.className = "remove-link";
+                        paragraph = document.createElement("p");
+                        paragraph.appendChild(imageAnchor);
+                        paragraph.appendChild(previewAnchor);
+                        paragraph.appendChild(removeAnchor);
+                        document.getElementById("output").appendChild(paragraph);
+                        removeAnchor.onclick = removeLink(paragraph);
+                        document.getElementById("clear-output").style.display = "block";
+                        ++i;
+                        nextItem();
+                    });
+                } else {
                     ++i;
                     nextItem();
-                });
+                }
             } else {
                 document.getElementById("modal-overlay").style.visibility = "hidden";
             }
         }
 
-        setTimeout(nextItem, 1000);
-    };
-
-    document.getElementById("close-image-link").onclick = function (evt) {
-        evt.preventDefault();
-        document.getElementById("preview-overlay").style.visibility = "hidden";
+        setTimeout(nextItem, 250);
     };
 });
