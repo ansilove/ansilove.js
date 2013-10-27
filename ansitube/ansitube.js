@@ -36,6 +36,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function animate(controller, baudrate, canvas, callback) {
         var divPreviewContainer, divPreviewOverlay, timer;
+        document.body.style.overflow = "hidden";
         divPreviewOverlay = document.getElementById("preview-overlay");
         divPreviewOverlay.style.visibility = "visible";
         divPreviewContainer = document.getElementById("preview-container");
@@ -162,7 +163,6 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("play-link").onclick = function (evt) {
         var i;
         evt.preventDefault();
-        document.body.style.overflow = "hidden";
         i = 0;
 
         function nextItem() {
