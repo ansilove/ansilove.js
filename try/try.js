@@ -133,9 +133,6 @@ document.addEventListener("DOMContentLoaded", function () {
             evt.preventDefault();
             divPreviewContainer = document.getElementById("preview-container");
             clearElement(divPreviewContainer);
-            canvas.onclick = function () {
-                document.getElementById("preview-overlay").style.visibility = "hidden";
-            };
             divPreviewContainer.appendChild(canvas);
             divPreviewContainer.style.width = canvas.width + "px";
             document.getElementById("preview-overlay").style.visibility = "visible";
@@ -198,5 +195,9 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         setTimeout(nextItem, 250);
+    };
+
+    document.getElementById("preview-overlay").onclick = function () {
+        document.getElementById("preview-overlay").style.visibility = "hidden";
     };
 });
