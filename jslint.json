@@ -1,0 +1,12 @@
+{
+    "bitwise": true,
+    "browser": true,
+    "devel": false,
+    "plusplus": true,
+    "predef": [
+        "atob",
+        "AnsiLove",
+        "Uint8Array",
+        "FileReader"
+    ]
+}
