@@ -123,7 +123,7 @@ var AnsiLove = (function () {
     }
 
     Font = (function () {
-        var FONT_PRESETS, FONT_PRESET_NAMES;
+        var FONT_PRESETS, FONT_PRESET_NAMES, presetBuffer;
 
         FONT_PRESETS = {
             "b-strict": {
@@ -240,6 +240,8 @@ var AnsiLove = (function () {
             }
         };
 
+        presetBuffer = {};
+
         (function () {
             var name;
             FONT_PRESET_NAMES = [];
@@ -251,33 +253,54 @@ var AnsiLove = (function () {
         }());
 
         function read(file, width, height, fontSize, amigaFont) {
-            var bits, fontBitWidth, canvas, imageData;
+            var bits, fontBitWidth, canvas, imageData, fontBuffer;
 
             bits = new Uint8Array(width * height * fontSize);
             fontBitWidth = width * height;
             canvas = createCanvas(width, height);
             imageData = canvas.getContext("2d").getImageData(0, 0, width, height);
+            fontBuffer = [];
 
             (function () {
                 var i, j, k, v;
                 for (i = k = 0; i < width * height * fontSize / 8; ++i) {
                     v = file.get();
                     for (j = 7; j >= 0; --j) {
-                        bits[k++] = (v >> j) & 1;
+                        bits[k++] = !!((v >> j) & 1);
                     }
                 }
             }());
 
-            function draw(ctx, x, y, charCode, fg, bg, bold) {
-                var i, j, k;
-                for (i = 0, j = charCode * fontBitWidth, k = 0; i < fontBitWidth; ++i, ++j, k += 4) {
-                    if (bits[j]) {
-                        imageData.data.set(fg, k);
-                    } else {
-                        if (amigaFont && bold && (i > 0) && bits[j - 1]) {
+            function draw(ctx, x, y, charCode, palette, fg, bg) {
+                var i, j, k, bufferIndex;
+
+                if (palette) {
+                    bufferIndex = charCode + (fg << 8) + (bg << 12);
+                    if (!fontBuffer[bufferIndex]) {
+                        fontBuffer[bufferIndex] = new Uint8Array(imageData.data.length);
+                        for (i = 0, j = charCode * fontBitWidth, k = 0; i < fontBitWidth; ++i, ++j, k += 4) {
+                            if (bits[j]) {
+                                fontBuffer[bufferIndex].set(palette[fg], k);
+                            } else {
+                                if (amigaFont && (fg > 7) && (i > 0) && bits[j - 1]) {
+                                    fontBuffer[bufferIndex].set(palette[fg], k);
+                                } else {
+                                    fontBuffer[bufferIndex].set(palette[bg], k);
+                                }
+                            }
+                        }
+                    }
+                    imageData.data.set(fontBuffer[bufferIndex], 0);
+                } else {
+                    for (i = 0, j = charCode * fontBitWidth, k = 0; i < fontBitWidth; ++i, ++j, k += 4) {
+                        if (bits[j]) {
                             imageData.data.set(fg, k);
                         } else {
-                            imageData.data.set(bg, k);
+                            if (amigaFont && (fg > 7) && (i > 0) && bits[j - 1]) {
+                                imageData.data.set(fg, k);
+                            } else {
+                                imageData.data.set(bg, k);
+                            }
                         }
                     }
                 }
@@ -305,12 +328,10 @@ var AnsiLove = (function () {
             };
         }
 
-        function charToCode(c) {
-            return c.charCodeAt(0);
-        }
-
         function base64ToBin(base64) {
-            return new Uint8Array(atob(base64).split("").map(charToCode));
+            return new Uint8Array(atob(base64).split("").map(function (c) {
+                return c.charCodeAt(0);
+            }));
         }
 
         function preset(name) {
@@ -332,9 +353,12 @@ var AnsiLove = (function () {
             if (!FONT_PRESETS.hasOwnProperty(name)) {
                 return undefined;
             }
-            file = new File(base64ToBin(FONT_PRESETS[name].data));
-            fontWidth = file.get();
-            return read(file, fontWidth, (file.size - 1) / 256 * 8 / fontWidth, 256, FONT_PRESETS[name].amigaFont);
+            if (!presetBuffer[name]) {
+                file = new File(base64ToBin(FONT_PRESETS[name].data));
+                fontWidth = file.get();
+                presetBuffer[name] = read(file, fontWidth, (file.size - 1) / 256 * 8 / fontWidth, 256, FONT_PRESETS[name].amigaFont);
+            }
+            return presetBuffer[name];
         }
 
         function xbin(file, fontHeight, char512) {
@@ -566,9 +590,11 @@ var AnsiLove = (function () {
             ctx = canvas.getContext("2d");
         }
 
-        if (raw.palette === undefined) {
-            for (i = j = x = y = 0; i < raw.imageData.length; i += 9) {
-                font.draw(splitRows ? ctx[j] : ctx, x++, y, raw.imageData[i], raw.imageData.subarray(i + 1, i + 5), raw.imageData.subarray(i + 5, i + 9), false);
+        if (raw.palette) {
+            for (i = j = x = y = 0; i < raw.imageData.length; i += 2) {
+                fg = raw.imageData[i + 1] & 15;
+                bg = raw.imageData[i + 1] >> 4;
+                font.draw(splitRows ? ctx[j] : ctx, x++, y, raw.imageData[i], raw.palette, fg, bg);
                 if (x % raw.width === 0) {
                     x = 0;
                     if (++y === splitRows && splitRows) {
@@ -578,10 +604,8 @@ var AnsiLove = (function () {
                 }
             }
         } else {
-            for (i = j = x = y = 0; i < raw.imageData.length; i += 2) {
-                fg = raw.imageData[i + 1] & 15;
-                bg = raw.imageData[i + 1] >> 4;
-                font.draw(splitRows ? ctx[j] : ctx, x++, y, raw.imageData[i], raw.palette[fg], raw.palette[bg], (fg > 7));
+            for (i = j = x = y = 0; i < raw.imageData.length; i += 9) {
+                font.draw(splitRows ? ctx[j] : ctx, x++, y, raw.imageData[i], undefined, raw.imageData.subarray(i + 1, i + 5), raw.imageData.subarray(i + 5, i + 9));
                 if (x % raw.width === 0) {
                     x = 0;
                     if (++y === splitRows && splitRows) {
@@ -1492,13 +1516,13 @@ var AnsiLove = (function () {
                             }
                             if (!icecolors) {
                                 if (blink) {
-                                    font.draw(blinkCtx[0], x - 1, y - 1, code, palette[bold ? (drawForeground + 8) : drawForeground], palette[drawBackground], bold);
-                                    font.draw(blinkCtx[1], x - 1, y - 1, code, palette[drawBackground], palette[drawBackground], false);
+                                    font.draw(blinkCtx[0], x - 1, y - 1, code, palette, bold ? (drawForeground + 8) : drawForeground, drawBackground);
+                                    font.draw(blinkCtx[1], x - 1, y - 1, code, palette, drawBackground, drawBackground);
                                 } else {
                                     clearBlinkChar(x - 1, y - 1);
                                 }
                             }
-                            font.draw(ctx, x - 1, y - 1, code, palette[bold ? (drawForeground + 8) : drawForeground], palette[(blink && icecolors) ? (drawBackground + 8) : drawBackground], bold);
+                            font.draw(ctx, x - 1, y - 1, code, palette, bold ? (drawForeground + 8) : drawForeground, (blink && icecolors) ? (drawBackground + 8) : drawBackground);
                             if (++x === 80 + 1) {
                                 if (newLine()) {
                                     return i + 1;
