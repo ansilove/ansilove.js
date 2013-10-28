@@ -123,7 +123,7 @@ var AnsiLove = (function () {
     }
 
     Font = (function () {
-        var FONT_PRESETS, FONT_PRESET_NAMES, presetBuffer;
+        var FONT_PRESETS, FONT_PRESET_NAMES;
 
         FONT_PRESETS = {
             "b-strict": {
@@ -240,8 +240,6 @@ var AnsiLove = (function () {
             }
         };
 
-        presetBuffer = {};
-
         (function () {
             var name;
             FONT_PRESET_NAMES = [];
@@ -353,12 +351,9 @@ var AnsiLove = (function () {
             if (!FONT_PRESETS.hasOwnProperty(name)) {
                 return undefined;
             }
-            if (!presetBuffer[name]) {
-                file = new File(base64ToBin(FONT_PRESETS[name].data));
-                fontWidth = file.get();
-                presetBuffer[name] = read(file, fontWidth, (file.size - 1) / 256 * 8 / fontWidth, 256, FONT_PRESETS[name].amigaFont);
-            }
-            return presetBuffer[name];
+            file = new File(base64ToBin(FONT_PRESETS[name].data));
+            fontWidth = file.get();
+            return read(file, fontWidth, (file.size - 1) / 256 * 8 / fontWidth, 256, FONT_PRESETS[name].amigaFont);
         }
 
         function xbin(file, fontHeight, char512) {
