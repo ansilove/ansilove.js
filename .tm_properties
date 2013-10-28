@@ -1,0 +1,2 @@
+exclude = "{$exclude,_site}"
+TM_JSLINTMATE_JSLINT_OPTIONS_FILE = "$CWD/jslint.json"
