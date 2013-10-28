@@ -951,6 +951,8 @@ var AnsiLove = (function () {
     function ans(bytes, options) {
         var file, escaped, escapeCode, j, code, values, columns, imageData, topOfScreen, x, y, savedX, savedY, foreground, background, bold, blink, inverse, palette;
 
+        file = new File(bytes);
+
         function resetAttributes() {
             foreground = 7;
             background = 0;
@@ -979,11 +981,13 @@ var AnsiLove = (function () {
 
         escapeCode = "";
         escaped = false;
-        columns = (options.mode === "ced") ? 78 : 80;
+        if (options.mode === "ced") {
+            columns = 78;
+        } else {
+            columns = file.sauce.tInfo1 || 80;
+        }
         imageData = new ScreenData(columns);
         topOfScreen = 0;
-
-        file = new File(bytes);
 
         function getValues() {
             return escapeCode.substr(1, escapeCode.length - 2).split(";").map(function (value) {
