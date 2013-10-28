@@ -984,7 +984,7 @@ var AnsiLove = (function () {
         if (options.mode === "ced") {
             columns = 78;
         } else {
-            columns = file.sauce.tInfo1 || 80;
+            columns = file.sauce ? file.sauce.tInfo1 : 80;
         }
         imageData = new ScreenData(columns);
         topOfScreen = 0;
