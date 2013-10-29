@@ -1,7 +1,7 @@
 {
     "bitwise": true,
     "browser": true,
-    "devel": false,
+    "devel": true,
     "plusplus": true,
     "predef": [
         "atob",
