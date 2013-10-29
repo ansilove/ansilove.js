@@ -572,7 +572,7 @@ var AnsiLove = (function () {
 
         font = raw.font || altFont || Font.preset("80x25");
 
-        if ((font.getWidth() === 9 && options.bits !== "9") || options.thumbnail) {
+        if (font.getWidth() === 9 && (options.bits !== "9" || options.thumbnail)) {
             font.setWidth(8);
         }
 
