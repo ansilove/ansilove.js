@@ -51,8 +51,11 @@ Ansilove.js has been tested on Safari, Firefox, and Chrome. Results may vary wid
 
 For extremely large files, which may silently fail on some browsers when producing a single canvas element, the `splitRender` function will produce an array of canvas elements, which can then be stacked vertically in the browser to simulate a single, contiguous display. The value of `27` in the following example is the maximum amount of text-rows in used in each element.
 
+When aligning these elements on a page there may be a small gap between each image. To correct this, simply apply the CSS style `vertical-align: bottom`, or apply it progmatically with a single line of Javascript.
+
     AnsiLove.splitRender("long_ansi.ans", function (canvases, sauce) {
         canvases.forEach(function (canvas) {
+            canvas.style.verticalAlign = "bottom"; // For perfect, gap-less viewing.
             document.body.appendChild(canvas);
         });
         console.log(sauce);
