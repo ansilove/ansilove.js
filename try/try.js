@@ -38,31 +38,41 @@ document.addEventListener("DOMContentLoaded", function () {
             var split;
             split = parseInt(document.getElementById("split").value, 10);
             if (split) {
-                AnsiLove.splitRenderBytes(new Uint8Array(data.target.result), function (canvases) {
-                    var canvas, ctx, i, zeroPadding;
-                    if (document.getElementById("combine").checked) {
-                        canvas = document.createElement("canvas");
-                        canvas.width = canvases[0].width * canvases.length;
-                        canvas.height = canvases[0].height;
-                        ctx = canvas.getContext("2d");
-                        for (i = 0; i < canvases.length; ++i) {
-                            ctx.drawImage(canvases[i], i * canvases[i].width, 0);
-                        }
-                        callback(removeExtension(name) + "_split", canvas);
-                    } else {
-                        for (i = 0; i < canvases.length; ++i) {
-                            zeroPadding = i.toString(10);
-                            while (zeroPadding.length < 4) {
-                                zeroPadding = "0" + zeroPadding;
+                try {
+                    AnsiLove.splitRenderBytes(new Uint8Array(data.target.result), function (canvases) {
+                        var canvas, ctx, i, zeroPadding;
+                        if (document.getElementById("combine").checked) {
+                            canvas = document.createElement("canvas");
+                            canvas.width = canvases[0].width * canvases.length;
+                            canvas.height = canvases[0].height;
+                            ctx = canvas.getContext("2d");
+                            for (i = 0; i < canvases.length; ++i) {
+                                ctx.drawImage(canvases[i], i * canvases[i].width, 0);
                             }
-                            callback(removeExtension(name) + "_" + zeroPadding, canvases[i]);
+                            callback(removeExtension(name) + "_split", canvas);
+                        } else {
+                            for (i = 0; i < canvases.length; ++i) {
+                                zeroPadding = i.toString(10);
+                                while (zeroPadding.length < 4) {
+                                    zeroPadding = "0" + zeroPadding;
+                                }
+                                callback(removeExtension(name) + "_" + zeroPadding, canvases[i]);
+                            }
                         }
-                    }
-                }, split, settings(getExtension(name)));
+                    }, split, settings(getExtension(name)));
+                } catch (splitRenderException) {
+                    alert("An error occured whilst attempting to render " + name);
+                    callback(removeExtension(name), undefined);
+                }
             } else {
-                AnsiLove.renderBytes(new Uint8Array(data.target.result), function (canvas) {
-                    callback(removeExtension(name), canvas);
-                }, settings(getExtension(name)));
+                try {
+                    AnsiLove.renderBytes(new Uint8Array(data.target.result), function (canvas) {
+                        callback(removeExtension(name), canvas);
+                    }, settings(getExtension(name)));
+                } catch (renderException) {
+                    alert("An error occured whilst attempting to render " + name);
+                    callback(removeExtension(name), undefined);
+                }
             }
         };
         reader.readAsArrayBuffer(file);
@@ -164,27 +174,29 @@ document.addEventListener("DOMContentLoaded", function () {
             if (i < files.length) {
                 if (files[i] !== undefined) {
                     readFile(files[i].name, files[i], function (name, canvas) {
-                        imageAnchor = document.createElement("a");
-                        imageAnchor.href = canvas.toDataURL("image/png");
-                        name = name + "_" + canvas.width + "x" + canvas.height + ".png";
-                        imageAnchor.download = name;
-                        imageAnchor.textContent = name;
-                        previewAnchor = document.createElement("a");
-                        previewAnchor.textContent = "preview";
-                        previewAnchor.href = "#";
-                        previewAnchor.className = "preview-link";
-                        previewAnchor.onclick = previewImage(canvas);
-                        removeAnchor = document.createElement("a");
-                        removeAnchor.href = "#";
-                        removeAnchor.textContent = "X";
-                        removeAnchor.className = "remove-link";
-                        paragraph = document.createElement("p");
-                        paragraph.appendChild(imageAnchor);
-                        paragraph.appendChild(previewAnchor);
-                        paragraph.appendChild(removeAnchor);
-                        document.getElementById("output").appendChild(paragraph);
-                        removeAnchor.onclick = removeLink(paragraph);
-                        document.getElementById("clear-output").style.display = "block";
+                        if (canvas !== undefined) {
+                            imageAnchor = document.createElement("a");
+                            imageAnchor.href = canvas.toDataURL("image/png");
+                            name = name + "_" + canvas.width + "x" + canvas.height + ".png";
+                            imageAnchor.download = name;
+                            imageAnchor.textContent = name;
+                            previewAnchor = document.createElement("a");
+                            previewAnchor.textContent = "preview";
+                            previewAnchor.href = "#";
+                            previewAnchor.className = "preview-link";
+                            previewAnchor.onclick = previewImage(canvas);
+                            removeAnchor = document.createElement("a");
+                            removeAnchor.href = "#";
+                            removeAnchor.textContent = "X";
+                            removeAnchor.className = "remove-link";
+                            paragraph = document.createElement("p");
+                            paragraph.appendChild(imageAnchor);
+                            paragraph.appendChild(previewAnchor);
+                            paragraph.appendChild(removeAnchor);
+                            document.getElementById("output").appendChild(paragraph);
+                            removeAnchor.onclick = removeLink(paragraph);
+                            document.getElementById("clear-output").style.display = "block";
+                        }
                         ++i;
                         nextItem();
                     });
