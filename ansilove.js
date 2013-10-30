@@ -123,7 +123,7 @@ var AnsiLove = (function () {
     }
 
     Font = (function () {
-        var FONT_PRESETS, FONT_PRESET_NAMES;
+        var FONT_PRESETS;
 
         FONT_PRESETS = {
             "b-strict": {
@@ -244,16 +244,6 @@ var AnsiLove = (function () {
             }
         };
 
-        (function () {
-            var name;
-            FONT_PRESET_NAMES = [];
-            for (name in FONT_PRESETS) {
-                if (FONT_PRESETS.hasOwnProperty(name)) {
-                    FONT_PRESET_NAMES.push(name);
-                }
-            }
-        }());
-
         function read(file, width, height, fontSize, amigaFont) {
             var bits, fontBitWidth, canvas, imageData, fontBuffer;
 
@@ -356,9 +346,6 @@ var AnsiLove = (function () {
                 name = "topaz500+";
                 break;
             }
-            if (!FONT_PRESETS.hasOwnProperty(name)) {
-                return undefined;
-            }
             file = new File(base64ToBin(FONT_PRESETS[name].data));
             fontWidth = file.get();
             return read(file, fontWidth, (file.size - 1) / 256 * 8 / fontWidth, 256, FONT_PRESETS[name].amigaFont);
@@ -372,11 +359,23 @@ var AnsiLove = (function () {
             return read(file, 8, 16, 256, false);
         }
 
+        function has(name) {
+            switch (name) {
+            case "amiga":
+            case "microknightplus":
+            case "topazplus":
+            case "topaz500plus":
+                return true;
+            default:
+                return FONT_PRESETS.hasOwnProperty(name);
+            }
+        }
+
         return {
-            "FONT_PRESET_NAMES": FONT_PRESET_NAMES,
             "preset": preset,
             "xbin": xbin,
-            "font8x16x256": font8x16x256
+            "font8x16x256": font8x16x256,
+            "has": has
         };
     }());
 
@@ -435,7 +434,7 @@ var AnsiLove = (function () {
         var imageData, maxY, pos;
 
         this.reset = function () {
-            imageData = new Uint8Array(width * 27 * 2);
+            imageData = new Uint8Array(width * 1000 * 2);
             maxY = 0;
             pos = 0;
         };
@@ -444,7 +443,7 @@ var AnsiLove = (function () {
 
         function extendImageData(y) {
             var newImageData;
-            newImageData = new Uint8Array(width * (y + 27) * 2 + imageData.length);
+            newImageData = new Uint8Array(width * (y + 1000) * 2 + imageData.length);
             newImageData.set(imageData, 0);
             imageData = newImageData;
         }
@@ -481,6 +480,8 @@ var AnsiLove = (function () {
         this.getHeight = function () {
             return maxY + 1;
         };
+
+        this.rowLength = width * 2;
     }
 
     function ScreenData24(width) {
@@ -522,6 +523,8 @@ var AnsiLove = (function () {
         this.getHeight = function () {
             return maxY + 1;
         };
+
+        this.rowLength = width * 9;
     }
 
     function scaleCanvas(sourceCanvas, chunkWidth, chunkHeight) {
@@ -571,8 +574,8 @@ var AnsiLove = (function () {
         return destCanvas;
     }
 
-    function display(raw, splitRows, altFont, options) {
-        var canvas, font, ctx, i, j, x, y, fg, bg;
+    function display(raw, start, length, altFont, options) {
+        var canvas, font, end, ctx, i, j, x, y, fg, bg, chunky;
 
         font = raw.font || altFont || Font.preset("80x25");
 
@@ -580,57 +583,34 @@ var AnsiLove = (function () {
             font.setWidth(8);
         }
 
-        if (splitRows) {
-            for (canvas = [], ctx = [], i = Math.ceil(raw.height / splitRows) - 1; i >= 0; --i) {
-                canvas[i] = createCanvas(raw.width * font.getWidth(), splitRows * font.getHeight());
-                ctx[i] = canvas[i].getContext("2d");
-            }
-            if (raw.height % splitRows) {
-                canvas[Math.ceil(raw.height / splitRows) - 1].height = raw.height % splitRows * font.getHeight();
-            }
-        } else {
-            canvas = createCanvas(raw.width * font.getWidth(), raw.height * font.getHeight());
-            ctx = canvas.getContext("2d");
-        }
+        end = Math.min(start + length, raw.imageData.length);
+
+        canvas = createCanvas(raw.width * font.getWidth(), (end - start) / raw.rowLength * font.getHeight());
+        ctx = canvas.getContext("2d");
 
         if (raw.palette) {
-            for (i = j = x = y = 0; i < raw.imageData.length; i += 2) {
+            for (i = start, j = x = y = 0; i < end; i += 2) {
                 fg = raw.imageData[i + 1] & 15;
                 bg = raw.imageData[i + 1] >> 4;
-                font.draw(splitRows ? ctx[j] : ctx, x++, y, raw.imageData[i], raw.palette, fg, bg);
+                font.draw(ctx, x++, y, raw.imageData[i], raw.palette, fg, bg);
                 if (x % raw.width === 0) {
                     x = 0;
-                    if (++y === splitRows && splitRows) {
-                        y = 0;
-                        ++j;
-                    }
+                    ++y;
                 }
             }
         } else {
-            for (i = j = x = y = 0; i < raw.imageData.length; i += 9) {
-                font.draw24Bit(splitRows ? ctx[j] : ctx, x++, y, raw.imageData[i], raw.imageData.subarray(i + 1, i + 5), raw.imageData.subarray(i + 5, i + 9));
+            for (i = start, j = x = y = 0; i < end; i += 9) {
+                font.draw24Bit(ctx, x++, y, raw.imageData[i], raw.imageData.subarray(i + 1, i + 5), raw.imageData.subarray(i + 5, i + 9));
                 if (x % raw.width === 0) {
                     x = 0;
-                    if (++y === splitRows && splitRows) {
-                        y = 0;
-                        ++j;
-                    }
+                    ++y;
                 }
             }
         }
 
         if (options.thumbnail) {
-            (function () {
-                var chunky;
-                chunky = Math.pow(2, 4 - options.thumbnail);
-                if (splitRows) {
-                    canvas = canvas.map(function (canvasItem) {
-                        return scaleCanvas(canvasItem, chunky, chunky);
-                    });
-                } else {
-                    canvas = scaleCanvas(canvas, chunky, chunky);
-                }
-            }());
+            chunky = Math.pow(2, 4 - options.thumbnail);
+            canvas = scaleCanvas(canvas, chunky, chunky);
         }
 
         return canvas;
@@ -722,6 +702,7 @@ var AnsiLove = (function () {
             "imageData": imageData,
             "palette": palette,
             "width": header.width,
+            "rowLength": header.width * 2,
             "sauce": file.sauce
         };
     }
@@ -742,6 +723,7 @@ var AnsiLove = (function () {
             "imageData": imageData,
             "palette": Palette.BIN,
             "width": options.columns,
+            "rowLength": options.columns * 2,
             "sauce": file.sauce
         };
     }
@@ -763,6 +745,7 @@ var AnsiLove = (function () {
             "imageData": imageData,
             "palette": palette,
             "width": 80,
+            "rowLength": 80 * 2,
             "sauce": file.sauce
         };
     }
@@ -831,6 +814,7 @@ var AnsiLove = (function () {
             "imageData": imageData.getData(),
             "palette": undefined,
             "width": 80,
+            "rowLength": imageData.rowLength,
             "sauce": file.sauce
         };
     }
@@ -873,6 +857,7 @@ var AnsiLove = (function () {
             "imageData": imageData.getData(),
             "palette": palette,
             "width": width,
+            "rowLength": imageData.rowLength,
             "sauce": file.sauce
         };
     }
@@ -948,6 +933,7 @@ var AnsiLove = (function () {
             "imageData": imageData.getData(),
             "palette": Palette.BIN,
             "width": 80,
+            "rowLength": imageData.rowLength,
             "sauce": file.sauce
         };
     }
@@ -1146,6 +1132,7 @@ var AnsiLove = (function () {
 
         return {
             "imageData": imageData.getData(),
+            "rowLength": imageData.rowLength,
             "palette": palette,
             "width": columns,
             "height": imageData.getHeight(),
@@ -1180,6 +1167,7 @@ var AnsiLove = (function () {
             "imageData": imageData.getData(),
             "palette": Palette.ASC_PC,
             "width": 80,
+            "rowLength": imageData.rowLength,
             "height": imageData.getHeight(),
             "sauce": file.sauce
         };
@@ -1230,15 +1218,25 @@ var AnsiLove = (function () {
     }
 
     function render(name, bytes, callback, splitRows, options) {
-        var data;
+        var data, font, canvases, start, splitLength;
 
-        options.icecolors = options.icecolors || 0;
-        options.bits = options.bits || "8";
-        options.columns = options.columns || 160;
-        options.font = options.font || "80x25";
-        options.thumbnail = options.thumbnail || 0;
-
-        if (options.thumbnail < 0 || options.thumbnail > 3) {
+        options.icecolors = (options.icecolors >= 0 && options.icecolors <= 1) ? options.icecolors : 0;
+        switch (options.bits) {
+        case "9":
+        case "ced":
+        case "workbench":
+            break;
+        default:
+            options.bits = "8";
+        }
+        options.columns = (options.columns > 0) ? options.columns : 160;
+        options.font = Font.has(options.font) ? options.font : "80x25";
+        switch (options.thumbnail) {
+        case 1:
+        case 2:
+        case 3:
+            break;
+        default:
             options.thumbnail = 0;
         }
 
@@ -1247,40 +1245,48 @@ var AnsiLove = (function () {
         case "nfo":
         case "asc":
             data = asc(bytes);
-            callback(display(data, splitRows, Font.preset(options.font), options), data.sauce);
+            font = Font.preset(options.font);
             break;
         case "diz":
         case "ion":
             data = trimColumns(asc(bytes));
-            callback(display(data, splitRows, Font.preset(options.font), options), data.sauce);
+            font = Font.preset(options.font);
             break;
         case "adf":
             data = adf(bytes);
-            callback(display(data, splitRows, undefined, options), data.sauce);
             break;
         case "bin":
             data = bin(bytes, options);
-            callback(display(data, splitRows, Font.preset(options.font), options), data.sauce);
+            font = Font.preset(options.font);
             break;
         case "idf":
             data = idf(bytes);
-            callback(display(data, splitRows, undefined, options), data.sauce);
             break;
         case "pcb":
             data = pcb(bytes, options);
-            callback(display(data, splitRows, Font.preset(options.font), options), data.sauce);
+            font = Font.preset(options.font);
             break;
         case "tnd":
             data = tnd(bytes);
-            callback(display(data, splitRows, Font.preset(options.font), options), data.sauce);
+            font = Font.preset(options.font);
             break;
         case "xb":
             data = xb(bytes);
-            callback(display(data, splitRows, undefined, options), data.sauce);
             break;
         default:
             data = ans(bytes, options);
-            callback(display(data, splitRows, Font.preset(options.font), options), data.sauce);
+            font = Font.preset(options.font);
+        }
+
+        if (splitRows) {
+            canvases = [];
+            splitLength = data.rowLength * splitRows;
+            for (start = 0; start < data.imageData.length; start += splitLength) {
+                canvases.push(display(data, start, splitLength, font, options));
+            }
+            callback(canvases, data.sauce);
+        } else {
+            callback(display(data, 0, data.imageData.length, font, options), data.sauce);
         }
     }
 
@@ -1321,7 +1327,7 @@ var AnsiLove = (function () {
 
         rows = options.rows || 26;
 
-        font = Font.preset(options.font) || Font.preset("80x25");
+        font = Font.has(options.font) ? Font.preset(options.font) : Font.preset("80x25");
 
         if (font.getWidth() === 9 && bits !== "9") {
             font.setWidth(8);
