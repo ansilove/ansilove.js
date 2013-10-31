@@ -245,17 +245,17 @@ var AnsiLove = (function () {
         };
 
         function read(file, width, height, fontSize, amigaFont) {
-            var bits, fontBitWidth, canvas, imageData, fontBuffer;
+            var bits, fontBitWidth, imageData, fontBuffer, fontBuffer24Bit;
 
             bits = new Uint8Array(width * height * fontSize);
             fontBitWidth = width * height;
-            canvas = createCanvas(width, height);
-            imageData = canvas.getContext("2d").getImageData(0, 0, width, height);
             fontBuffer = [];
+            fontBuffer24Bit = new Uint8Array(width * height * 4);
+			imageData = createCanvas(width, height).getContext("2d").getImageData(0, 0, width, height);
 
             (function () {
                 var i, j, k, v;
-                for (i = k = 0; i < width * height * fontSize / 8; ++i) {
+                for (i = width * height * fontSize / 8, k = 0; i > 0; --i) {
                     v = file.get();
                     for (j = 7; j >= 0; --j) {
                         bits[k++] = !!((v >> j) & 1);
@@ -263,7 +263,7 @@ var AnsiLove = (function () {
                 }
             }());
 
-            function draw(ctx, x, y, charCode, palette, fg, bg) {
+            function getData(charCode, palette, fg, bg) {
                 var i, j, k, bufferIndex;
 
                 bufferIndex = charCode + (fg << 8) + (bg << 12);
@@ -281,46 +281,32 @@ var AnsiLove = (function () {
                         }
                     }
                 }
-                imageData.data.set(fontBuffer[bufferIndex], 0);
-                ctx.putImageData(imageData, x * width, y * height, 0, 0, width, height);
+				return fontBuffer[bufferIndex];
             }
 
-            function draw24Bit(ctx, x, y, charCode, fg, bg) {
+            function get24BitData(charCode, fg, bg) {
                 var i, j, k;
 
                 for (i = 0, j = charCode * fontBitWidth, k = 0; i < fontBitWidth; ++i, ++j, k += 4) {
                     if (bits[j]) {
-                        imageData.data.set(fg, k);
+                        fontBuffer24Bit.set(fg, k);
                     } else {
                         if (amigaFont && (fg > 7) && (i > 0) && bits[j - 1]) {
-                            imageData.data.set(fg, k);
+                            fontBuffer24Bit.set(fg, k);
                         } else {
-                            imageData.data.set(bg, k);
+                            fontBuffer24Bit.set(bg, k);
                         }
                     }
                 }
-                ctx.putImageData(imageData, x * width, y * height, 0, 0, width, height);
-            }
-
-            function getHeight() {
-                return height;
-            }
-
-            function getWidth() {
-                return width;
-            }
-
-            function setWidth(newWidth) {
-                width = newWidth;
+                return fontBuffer24Bit;
             }
 
             return {
-                "draw": draw,
-                "draw24Bit": draw24Bit,
+                "getData": getData,
+                "get24BitData": get24BitData,
                 "fontSize": fontSize,
-                "getHeight": getHeight,
-                "getWidth" : getWidth,
-                "setWidth": setWidth
+                "height": height,
+                "width" : width
             };
         }
 
@@ -528,25 +514,7 @@ var AnsiLove = (function () {
     }
 
     function scaleCanvas(sourceCanvas, chunkWidth, chunkHeight) {
-        var sourceCtx, sourceImageData, destCanvas, destCtx, destImageData, rgba;
-
-        function average(x, y) {
-            var i, j, chunkSize, r, g, b, a;
-            chunkSize = chunkWidth * chunkHeight;
-            for (i = r = g = b = a = 0, j = (y * sourceCanvas.width * chunkHeight + x * chunkWidth) * 4; i < chunkSize; ++i) {
-                r += sourceImageData.data[j++];
-                g += sourceImageData.data[j++];
-                b += sourceImageData.data[j++];
-                a += sourceImageData.data[j++];
-                if ((i + 1) % chunkWidth === 0) {
-                    j += (sourceCanvas.width - chunkWidth) * 4;
-                }
-            }
-            rgba[0] = Math.round(r / chunkSize);
-            rgba[1] = Math.round(g / chunkSize);
-            rgba[2] = Math.round(b / chunkSize);
-            rgba[3] = Math.round(a / chunkSize);
-        }
+        var sourceCtx, sourceImageData, destCanvas, destCtx, destImageData, rgba, pixelRowOffset, chunkSize, i, j, k, x, y, r, g, b, a;
 
         rgba = new Uint8Array(4);
 
@@ -557,17 +525,29 @@ var AnsiLove = (function () {
         destCtx = destCanvas.getContext("2d");
         destImageData = destCtx.getImageData(0, 0, destCanvas.width, destCanvas.height);
 
-        (function () {
-            var i, x, y;
-            for (i = x = y = 0; i < destImageData.data.length; i += 4) {
-                average(x, y);
-                destImageData.data.set(rgba, i);
-                if (++x === destCanvas.width) {
-                    x = 0;
-                    ++y;
+        pixelRowOffset = (sourceCanvas.width - chunkWidth) * 4;
+        chunkSize = chunkWidth * chunkHeight;
+
+        for (i = x = y = 0; i < destImageData.data.length; i += 4) {
+            for (j = r = g = b = a = 0, k = (y * sourceCanvas.width * chunkHeight + x * chunkWidth) * 4; j < chunkSize; ++j) {
+                r += sourceImageData.data[k++];
+                g += sourceImageData.data[k++];
+                b += sourceImageData.data[k++];
+                a += sourceImageData.data[k++];
+                if ((j + 1) % chunkWidth === 0) {
+                    k += pixelRowOffset;
                 }
             }
-        }());
+            rgba[0] = Math.round(r / chunkSize);
+            rgba[1] = Math.round(g / chunkSize);
+            rgba[2] = Math.round(b / chunkSize);
+            rgba[3] = Math.round(a / chunkSize);
+            destImageData.data.set(rgba, i);
+            if (++x === destCanvas.width) {
+                x = 0;
+                ++y;
+            }
+        }
 
         destCtx.putImageData(destImageData, 0, 0);
 
@@ -575,38 +555,46 @@ var AnsiLove = (function () {
     }
 
     function display(raw, start, length, altFont, options) {
-        var canvas, font, end, ctx, i, j, x, y, fg, bg, chunky;
+        var canvas, font, end, ctx, i, j, k, l, x, chunky, fontBitWidth, fontDisplayWidth, displayFontBitWidth, imageData, fontData, rowOffset, screenOffset, fontOffset;
 
         font = raw.font || altFont || Font.preset("80x25");
 
-        if (font.getWidth() === 9 && (options.bits !== "9" || options.thumbnail)) {
-            font.setWidth(8);
-        }
+		fontDisplayWidth = (font.width === 9 && (options.bits !== "9" || options.thumbnail)) ? 8 : font.width;
+
+		fontBitWidth = font.width * 4;
+		displayFontBitWidth = fontDisplayWidth * 4;
 
         end = Math.min(start + length, raw.imageData.length);
 
-        canvas = createCanvas(raw.width * font.getWidth(), (end - start) / raw.rowLength * font.getHeight());
+        canvas = createCanvas(raw.width * fontDisplayWidth, (end - start) / raw.rowLength * font.height);
         ctx = canvas.getContext("2d");
 
+		imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+		rowOffset = canvas.width * 4;
+
         if (raw.palette) {
-            for (i = start, j = x = y = 0; i < end; i += 2) {
-                fg = raw.imageData[i + 1] & 15;
-                bg = raw.imageData[i + 1] >> 4;
-                font.draw(ctx, x++, y, raw.imageData[i], raw.palette, fg, bg);
-                if (x % raw.width === 0) {
-                    x = 0;
-                    ++y;
+            for (i = start, screenOffset = 0, j = x = 0; i < end; i += 2, screenOffset += displayFontBitWidth) {
+				fontData = font.getData(raw.imageData[i], raw.palette, raw.imageData[i + 1] & 15, raw.imageData[i + 1] >> 4);
+				for (fontOffset = screenOffset, k = l = 0; k < font.height; ++k, fontOffset += rowOffset, l += fontBitWidth) {
+					imageData.data.set(fontData.subarray(l, l + displayFontBitWidth), fontOffset);
+				}
+                if (++x % raw.width === 0) {
+                    screenOffset += (font.height - 1) * rowOffset;
                 }
             }
         } else {
-            for (i = start, j = x = y = 0; i < end; i += 9) {
-                font.draw24Bit(ctx, x++, y, raw.imageData[i], raw.imageData.subarray(i + 1, i + 5), raw.imageData.subarray(i + 5, i + 9));
-                if (x % raw.width === 0) {
-                    x = 0;
-                    ++y;
+            for (i = start, screenOffset = 0, j = x = 0; i < end; i += 9, screenOffset += displayFontBitWidth) {
+				fontData = font.get24BitData(raw.imageData[i], raw.imageData.subarray(i + 1, i + 5), raw.imageData.subarray(i + 5, i + 9));
+				for (fontOffset = screenOffset, k = l = 0; k < font.height; ++k, fontOffset += rowOffset, l += fontBitWidth) {
+					imageData.data.set(fontData.subarray(l, l + displayFontBitWidth), fontOffset);
+				}
+                if (++x % raw.width === 0) {
+                    screenOffset += (font.height - 1) * rowOffset;
                 }
             }
         }
+
+		ctx.putImageData(imageData, 0, 0);
 
         if (options.thumbnail) {
             chunky = Math.pow(2, 4 - options.thumbnail);
@@ -1299,11 +1287,11 @@ var AnsiLove = (function () {
     }
 
     function Ansimation(bytes, options) {
-        var timer, interval, file, font, icecolors, bits, palette, columns, rows, screenClear, canvas, ctx, blinkCanvas, buffer, bufferCtx, blinkCtx, escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, drawForeground, drawBackground, bold, inverse, blink, characterWidth, characterHeight;
+        var timer, interval, file, font, fontDisplayWidth, icecolors, bits, palette, columns, rows, screenClear, canvas, ctx, blinkCanvas, buffer, bufferCtx, blinkCtx, escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, drawForeground, drawBackground, bold, inverse, blink, fontImageData;
 
         file = new File(bytes);
         icecolors = (options.icecolors === undefined) ? false : (options.icecolors === 1);
-        bits = options.bits || 8;
+        bits = options.bits || "8";
         screenClear = (options["2J"] === undefined) ? true : (options["2J"] === 1);
 
         switch (bits) {
@@ -1329,15 +1317,11 @@ var AnsiLove = (function () {
 
         font = Font.has(options.font) ? Font.preset(options.font) : Font.preset("80x25");
 
-        if (font.getWidth() === 9 && bits !== "9") {
-            font.setWidth(8);
-        }
+		fontDisplayWidth = (font.width === 9 && bits !== "9") ? 8 : font.width;
 
-        characterWidth = font.getWidth();
-        characterHeight = font.getHeight();
-
-        canvas = createCanvas(columns * font.getWidth(), rows * font.getHeight());
+        canvas = createCanvas(columns * fontDisplayWidth, rows * font.height);
         ctx = canvas.getContext("2d");
+		fontImageData = ctx.createImageData(font.width, font.height);
 
         blinkCanvas = [createCanvas(canvas.width, canvas.height), createCanvas(canvas.width, canvas.height)];
         buffer = createCanvas(canvas.width, canvas.height);
@@ -1363,25 +1347,25 @@ var AnsiLove = (function () {
 
         function clearBlinkChar(charX, charY) {
             var sx, sy;
-            sx = charX * characterWidth;
-            sy = charY * characterHeight;
-            blinkCtx[0].clearRect(sx, sy, characterWidth, characterHeight);
-            blinkCtx[1].clearRect(sx, sy, characterWidth, characterHeight);
+            sx = charX * fontDisplayWidth;
+            sy = charY * font.height;
+            blinkCtx[0].clearRect(sx, sy, fontDisplayWidth, font.height);
+            blinkCtx[1].clearRect(sx, sy, fontDisplayWidth, font.height);
         }
 
         function newLine() {
             x = 1;
             if (y === rows - 1) {
-                ctx.drawImage(canvas, 0, characterHeight, canvas.width, canvas.height - characterHeight * 2, 0, 0, canvas.width, canvas.height - characterHeight * 2);
+                ctx.drawImage(canvas, 0, font.height, canvas.width, canvas.height - font.height * 2, 0, 0, canvas.width, canvas.height - font.height * 2);
                 bufferCtx.clearRect(0, 0, canvas.width, canvas.height);
-                bufferCtx.drawImage(blinkCanvas[0], 0, characterHeight, canvas.width, canvas.height - characterHeight * 2, 0, 0, canvas.width, canvas.height - characterHeight * 2);
+                bufferCtx.drawImage(blinkCanvas[0], 0, font.height, canvas.width, canvas.height - font.height * 2, 0, 0, canvas.width, canvas.height - font.height * 2);
                 blinkCtx[0].clearRect(0, 0, canvas.width, canvas.height);
                 blinkCtx[0].drawImage(buffer, 0, 0);
                 bufferCtx.clearRect(0, 0, canvas.width, canvas.height);
-                bufferCtx.drawImage(blinkCanvas[1], 0, characterHeight, canvas.width, canvas.height - characterHeight * 2, 0, 0, canvas.width, canvas.height - characterHeight * 2);
+                bufferCtx.drawImage(blinkCanvas[1], 0, font.height, canvas.width, canvas.height - font.height * 2, 0, 0, canvas.width, canvas.height - font.height * 2);
                 blinkCtx[1].clearRect(0, 0, canvas.width, canvas.height);
                 blinkCtx[1].drawImage(buffer, 0, 0);
-                clearScreen(0, canvas.height - characterHeight * 2, canvas.width, characterHeight);
+                clearScreen(0, canvas.height - font.height * 2, canvas.width, font.height);
                 return true;
             }
             ++y;
@@ -1458,7 +1442,7 @@ var AnsiLove = (function () {
                                 }
                                 break;
                             case "K":
-                                clearScreen((x - 1) * characterWidth, (y - 1) * characterHeight, canvas.width - (x - 1) * characterWidth, characterHeight);
+                                clearScreen((x - 1) * fontDisplayWidth, (y - 1) * font.height, canvas.width - (x - 1) * fontDisplayWidth, font.height);
                                 break;
                             case "m":
                                 for (j = 0; j < values.length; ++j) {
@@ -1539,15 +1523,23 @@ var AnsiLove = (function () {
                                 drawForeground = foreground;
                                 drawBackground = background;
                             }
+							if (bold) {
+								drawForeground += 8;
+							}
+							if (blink && icecolors) {
+								drawBackground += 8;
+							}
+							fontImageData.data.set(font.getData(code, palette, drawForeground, drawBackground), 0);
+							ctx.putImageData(fontImageData, (x - 1) * fontDisplayWidth, (y - 1) * font.height, 0, 0, fontDisplayWidth, font.height);
                             if (!icecolors) {
                                 if (blink) {
-                                    font.draw(blinkCtx[0], x - 1, y - 1, code, palette, bold ? (drawForeground + 8) : drawForeground, drawBackground);
-                                    font.draw(blinkCtx[1], x - 1, y - 1, code, palette, drawBackground, drawBackground);
+									blinkCtx[0].putImageData(fontImageData, (x - 1) * fontDisplayWidth, (y - 1) * font.height, 0, 0, fontDisplayWidth, font.height);
+                                    fontImageData.data.set(font.getData(code, palette, drawBackground, drawBackground), 0);
+									blinkCtx[1].putImageData(fontImageData, (x - 1) * fontDisplayWidth, (y - 1) * font.height, 0, 0, fontDisplayWidth, font.height);
                                 } else {
                                     clearBlinkChar(x - 1, y - 1);
                                 }
                             }
-                            font.draw(ctx, x - 1, y - 1, code, palette, bold ? (drawForeground + 8) : drawForeground, (blink && icecolors) ? (drawBackground + 8) : drawBackground);
                             if (++x === columns + 1) {
                                 if (newLine()) {
                                     return i + 1;
