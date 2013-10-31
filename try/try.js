@@ -146,6 +146,7 @@ document.addEventListener("DOMContentLoaded", function () {
             divPreviewContainer.appendChild(canvas);
             divPreviewContainer.style.width = canvas.width + "px";
             divPreviewContainer.scrollTop = 0;
+            divPreviewContainer.scrollLeft = 0;
             document.getElementById("preview-overlay").style.visibility = "visible";
             document.body.style.overflow = "hidden";
         };
