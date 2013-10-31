@@ -255,7 +255,7 @@ var AnsiLove = (function () {
 
             (function () {
                 var i, j, k, v;
-                for (i = k = 0; i < width * height * fontSize / 8; ++i) {
+                for (i = width * height * fontSize / 8, k = 0; i > 0; --i) {
                     v = file.get();
                     for (j = 7; j >= 0; --j) {
                         bits[k++] = !!((v >> j) & 1);
@@ -528,25 +528,7 @@ var AnsiLove = (function () {
     }
 
     function scaleCanvas(sourceCanvas, chunkWidth, chunkHeight) {
-        var sourceCtx, sourceImageData, destCanvas, destCtx, destImageData, rgba;
-
-        function average(x, y) {
-            var i, j, chunkSize, r, g, b, a;
-            chunkSize = chunkWidth * chunkHeight;
-            for (i = r = g = b = a = 0, j = (y * sourceCanvas.width * chunkHeight + x * chunkWidth) * 4; i < chunkSize; ++i) {
-                r += sourceImageData.data[j++];
-                g += sourceImageData.data[j++];
-                b += sourceImageData.data[j++];
-                a += sourceImageData.data[j++];
-                if ((i + 1) % chunkWidth === 0) {
-                    j += (sourceCanvas.width - chunkWidth) * 4;
-                }
-            }
-            rgba[0] = Math.round(r / chunkSize);
-            rgba[1] = Math.round(g / chunkSize);
-            rgba[2] = Math.round(b / chunkSize);
-            rgba[3] = Math.round(a / chunkSize);
-        }
+        var sourceCtx, sourceImageData, destCanvas, destCtx, destImageData, rgba, pixelRowOffset, chunkSize, i, j, k, x, y, r, g, b, a;
 
         rgba = new Uint8Array(4);
 
@@ -557,17 +539,29 @@ var AnsiLove = (function () {
         destCtx = destCanvas.getContext("2d");
         destImageData = destCtx.getImageData(0, 0, destCanvas.width, destCanvas.height);
 
-        (function () {
-            var i, x, y;
-            for (i = x = y = 0; i < destImageData.data.length; i += 4) {
-                average(x, y);
-                destImageData.data.set(rgba, i);
-                if (++x === destCanvas.width) {
-                    x = 0;
-                    ++y;
+        pixelRowOffset = (sourceCanvas.width - chunkWidth) * 4;
+        chunkSize = chunkWidth * chunkHeight;
+
+        for (i = x = y = 0; i < destImageData.data.length; i += 4) {
+            for (j = r = g = b = a = 0, k = (y * sourceCanvas.width * chunkHeight + x * chunkWidth) * 4; j < chunkSize; ++j) {
+                r += sourceImageData.data[k++];
+                g += sourceImageData.data[k++];
+                b += sourceImageData.data[k++];
+                a += sourceImageData.data[k++];
+                if ((j + 1) % chunkWidth === 0) {
+                    k += pixelRowOffset;
                 }
             }
-        }());
+            rgba[0] = Math.round(r / chunkSize);
+            rgba[1] = Math.round(g / chunkSize);
+            rgba[2] = Math.round(b / chunkSize);
+            rgba[3] = Math.round(a / chunkSize);
+            destImageData.data.set(rgba, i);
+            if (++x === destCanvas.width) {
+                x = 0;
+                ++y;
+            }
+        }
 
         destCtx.putImageData(destImageData, 0, 0);
 
