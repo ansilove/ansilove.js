@@ -245,13 +245,12 @@ var AnsiLove = (function () {
         };
 
         function read(file, width, height, fontSize, amigaFont) {
-            var bits, fontBitWidth, imageData, fontBuffer, fontBuffer24Bit;
+            var bits, fontBitWidth, fontBuffer, fontBuffer24Bit;
 
             bits = new Uint8Array(width * height * fontSize);
             fontBitWidth = width * height;
             fontBuffer = [];
             fontBuffer24Bit = new Uint8Array(width * height * 4);
-			imageData = createCanvas(width, height).getContext("2d").getImageData(0, 0, width, height);
 
             (function () {
                 var i, j, k, v;
@@ -268,7 +267,7 @@ var AnsiLove = (function () {
 
                 bufferIndex = charCode + (fg << 8) + (bg << 12);
                 if (!fontBuffer[bufferIndex]) {
-                    fontBuffer[bufferIndex] = new Uint8Array(imageData.data.length);
+                    fontBuffer[bufferIndex] = new Uint8Array(width * height * 4);
                     for (i = 0, j = charCode * fontBitWidth, k = 0; i < fontBitWidth; ++i, ++j, k += 4) {
                         if (bits[j]) {
                             fontBuffer[bufferIndex].set(palette[fg], k);
@@ -513,27 +512,24 @@ var AnsiLove = (function () {
         this.rowLength = width * 9;
     }
 
-    function scaleCanvas(sourceCanvas, chunkWidth, chunkHeight) {
-        var sourceCtx, sourceImageData, destCanvas, destCtx, destImageData, rgba, pixelRowOffset, chunkSize, i, j, k, x, y, r, g, b, a;
+    function scaleCanvas(sourceData, width, height, chunkWidth, chunkHeight) {
+        var destWidth, destHeight, destData, rgba, pixelRowOffset, chunkSize, i, j, k, x, y, r, g, b, a;
 
         rgba = new Uint8Array(4);
 
-        sourceCtx = sourceCanvas.getContext("2d");
-        sourceImageData = sourceCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+        destWidth = width / chunkWidth;
+        destHeight = height / chunkHeight;
+        destData = new Uint8Array(destWidth * destHeight * 4);
 
-        destCanvas = createCanvas(sourceCanvas.width / chunkWidth, sourceCanvas.height / chunkHeight);
-        destCtx = destCanvas.getContext("2d");
-        destImageData = destCtx.getImageData(0, 0, destCanvas.width, destCanvas.height);
-
-        pixelRowOffset = (sourceCanvas.width - chunkWidth) * 4;
+        pixelRowOffset = (width - chunkWidth) * 4;
         chunkSize = chunkWidth * chunkHeight;
 
-        for (i = x = y = 0; i < destImageData.data.length; i += 4) {
-            for (j = r = g = b = a = 0, k = (y * sourceCanvas.width * chunkHeight + x * chunkWidth) * 4; j < chunkSize; ++j) {
-                r += sourceImageData.data[k++];
-                g += sourceImageData.data[k++];
-                b += sourceImageData.data[k++];
-                a += sourceImageData.data[k++];
+        for (i = x = y = 0; i < destData.length; i += 4) {
+            for (j = r = g = b = a = 0, k = (y * width * chunkHeight + x * chunkWidth) * 4; j < chunkSize; ++j) {
+                r += sourceData[k++];
+                g += sourceData[k++];
+                b += sourceData[k++];
+                a += sourceData[k++];
                 if ((j + 1) % chunkWidth === 0) {
                     k += pixelRowOffset;
                 }
@@ -542,20 +538,22 @@ var AnsiLove = (function () {
             rgba[1] = Math.round(g / chunkSize);
             rgba[2] = Math.round(b / chunkSize);
             rgba[3] = Math.round(a / chunkSize);
-            destImageData.data.set(rgba, i);
-            if (++x === destCanvas.width) {
+            destData.set(rgba, i);
+            if (++x === destWidth) {
                 x = 0;
                 ++y;
             }
         }
 
-        destCtx.putImageData(destImageData, 0, 0);
-
-        return destCanvas;
+        return {
+            "width": destWidth,
+            "height": destHeight,
+            "rgbaData": destData
+        };
     }
 
     function display(raw, start, length, altFont, options) {
-        var canvas, font, end, ctx, i, j, k, l, x, chunky, fontBitWidth, fontDisplayWidth, displayFontBitWidth, imageData, fontData, rowOffset, screenOffset, fontOffset;
+        var canvasWidth, canvasHeight, rgbaData, font, end, i, j, k, l, x, fontBitWidth, fontDisplayWidth, displayFontBitWidth, fontData, rowOffset, screenOffset, fontOffset, chunky;
 
         font = raw.font || altFont || Font.preset("80x25");
 
@@ -566,17 +564,17 @@ var AnsiLove = (function () {
 
         end = Math.min(start + length, raw.imageData.length);
 
-        canvas = createCanvas(raw.width * fontDisplayWidth, (end - start) / raw.rowLength * font.height);
-        ctx = canvas.getContext("2d");
+		canvasWidth = raw.width * fontDisplayWidth;
+		canvasHeight = (end - start) / raw.rowLength * font.height;
 
-		imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-		rowOffset = canvas.width * 4;
+		rgbaData = new Uint8Array(canvasWidth * canvasHeight * 4);
+		rowOffset = canvasWidth * 4;
 
         if (raw.palette) {
             for (i = start, screenOffset = 0, j = x = 0; i < end; i += 2, screenOffset += displayFontBitWidth) {
 				fontData = font.getData(raw.imageData[i], raw.palette, raw.imageData[i + 1] & 15, raw.imageData[i + 1] >> 4);
 				for (fontOffset = screenOffset, k = l = 0; k < font.height; ++k, fontOffset += rowOffset, l += fontBitWidth) {
-					imageData.data.set(fontData.subarray(l, l + displayFontBitWidth), fontOffset);
+					rgbaData.set(fontData.subarray(l, l + displayFontBitWidth), fontOffset);
 				}
                 if (++x % raw.width === 0) {
                     screenOffset += (font.height - 1) * rowOffset;
@@ -586,7 +584,7 @@ var AnsiLove = (function () {
             for (i = start, screenOffset = 0, j = x = 0; i < end; i += 9, screenOffset += displayFontBitWidth) {
 				fontData = font.get24BitData(raw.imageData[i], raw.imageData.subarray(i + 1, i + 5), raw.imageData.subarray(i + 5, i + 9));
 				for (fontOffset = screenOffset, k = l = 0; k < font.height; ++k, fontOffset += rowOffset, l += fontBitWidth) {
-					imageData.data.set(fontData.subarray(l, l + displayFontBitWidth), fontOffset);
+					rgbaData.set(fontData.subarray(l, l + displayFontBitWidth), fontOffset);
 				}
                 if (++x % raw.width === 0) {
                     screenOffset += (font.height - 1) * rowOffset;
@@ -594,14 +592,16 @@ var AnsiLove = (function () {
             }
         }
 
-		ctx.putImageData(imageData, 0, 0);
-
         if (options.thumbnail) {
             chunky = Math.pow(2, 4 - options.thumbnail);
-            canvas = scaleCanvas(canvas, chunky, chunky);
+            return scaleCanvas(rgbaData, canvasWidth, canvasHeight, chunky, chunky);
         }
 
-        return canvas;
+        return {
+            "width": canvasWidth,
+			"height": canvasHeight,
+			"rgbaData": rgbaData
+        };
     }
 
     function xb(bytes) {
@@ -1205,8 +1205,18 @@ var AnsiLove = (function () {
         return data;
     }
 
+    function displayDataToCanvas(displayData) {
+        var canvas, ctx, imageData;
+        canvas = createCanvas(displayData.width, displayData.height);
+        ctx = canvas.getContext("2d");
+        imageData = ctx.createImageData(canvas.width, canvas.height);
+        imageData.data.set(displayData.rgbaData, 0);
+        ctx.putImageData(imageData, 0, 0);
+        return canvas;
+    }
+
     function render(name, bytes, callback, splitRows, options) {
-        var data, font, canvases, start, splitLength;
+        var data, font, returnArray, start, splitLength, displayData;
 
         options.icecolors = (options.icecolors >= 0 && options.icecolors <= 1) ? options.icecolors : 0;
         switch (options.bits) {
@@ -1227,6 +1237,7 @@ var AnsiLove = (function () {
         default:
             options.thumbnail = 0;
         }
+        options.imagedata = (options.imagedata >= 0 && options.imagedata <= 1) ? options.imagedata : 0;
 
         switch (options.filetype || name.split(".").pop().toLowerCase()) {
         case "txt":
@@ -1267,14 +1278,16 @@ var AnsiLove = (function () {
         }
 
         if (splitRows) {
-            canvases = [];
+            returnArray = [];
             splitLength = data.rowLength * splitRows;
             for (start = 0; start < data.imageData.length; start += splitLength) {
-                canvases.push(display(data, start, splitLength, font, options));
+                displayData = display(data, start, splitLength, font, options);
+                returnArray.push(options.imagedata ? displayData : displayDataToCanvas(displayData));
             }
-            callback(canvases, data.sauce);
+            callback(returnArray, data.sauce);
         } else {
-            callback(display(data, 0, data.imageData.length, font, options), data.sauce);
+            displayData = display(data, 0, data.imageData.length, font, options);
+            callback(options.imagedata ? displayData : displayDataToCanvas(displayData), data.sauce);
         }
     }
 
@@ -1659,6 +1672,7 @@ var AnsiLove = (function () {
                 }
             };
         },
+        "displayDataToCanvas": displayDataToCanvas,
         "sauce": sauce
     };
 }());
