@@ -123,7 +123,7 @@ var AnsiLove = (function () {
     }
 
     Font = (function () {
-        var FONT_PRESETS;
+        var FONT_PRESETS, bytesBuffer;
 
         FONT_PRESETS = {
             "b-strict": {
@@ -244,6 +244,8 @@ var AnsiLove = (function () {
             }
         };
 
+        bytesBuffer = {};
+
         function read(file, width, height, fontSize, amigaFont) {
             var bits, fontBitWidth, fontBuffer, fontBuffer24Bit;
 
@@ -309,10 +311,13 @@ var AnsiLove = (function () {
             };
         }
 
-        function base64ToBin(base64) {
-            return new Uint8Array(atob(base64).split("").map(function (c) {
-                return c.charCodeAt(0);
-            }));
+        function decodeBas64(name) {
+            if (!bytesBuffer[name]) {
+                bytesBuffer[name] = new Uint8Array(atob(FONT_PRESETS[name].data).split("").map(function (c) {
+                    return c.charCodeAt(0);
+                }));
+            }
+            return bytesBuffer[name];
         }
 
         function preset(name) {
@@ -331,7 +336,7 @@ var AnsiLove = (function () {
                 name = "topaz500+";
                 break;
             }
-            file = new File(base64ToBin(FONT_PRESETS[name].data));
+            file = new File(decodeBas64(name));
             fontWidth = file.get();
             return read(file, fontWidth, (file.size - 1) / 256 * 8 / fontWidth, 256, FONT_PRESETS[name].amigaFont);
         }
