@@ -1753,3 +1753,32 @@ var AnsiLove = (function () {
         "sauce": sauce
     };
 }());
+
+(function () {
+    "use strict";
+    if (self.WorkerLocation) {
+        self.onmessage = function (evt) {
+            if (evt.data.bytes) {
+                if (evt.data.split > 0) {
+                    AnsiLove.splitRenderBytes(evt.data.bytes, function (imagedata, sauce) {
+                        self.postMessage({"splitimagedata": imagedata, "sauce": sauce});
+                    }, evt.data.split, {"imagedata": 1, "font": evt.data.font, "bits": evt.data.bits, "icecolors": evt.data.icecolors, "columns": evt.data.columns, "thumbnail": evt.data.thumbnail, "filetype": evt.data.filetype});
+                } else {
+                    AnsiLove.renderBytes(evt.data.bytes, function (imagedata, sauce) {
+                        self.postMessage({"imagedata": imagedata, "sauce": sauce});
+                    }, {"imagedata": 1, "font": evt.data.font, "bits": evt.data.bits, "icecolors": evt.data.icecolors, "columns": evt.data.columns, "thumbnail": evt.data.thumbnail, "filetype": evt.data.filetype});
+                }
+            } else {
+                if (evt.data.split > 0) {
+                    AnsiLove.splitRender(evt.data.url, function (imagedata, sauce) {
+                        self.postMessage({"splitimagedata": imagedata, "sauce": sauce});
+                    }, evt.data.split, {"imagedata": 1, "font": evt.data.font, "bits": evt.data.bits, "icecolors": evt.data.icecolors, "columns": evt.data.columns, "thumbnail": evt.data.thumbnail, "filetype": evt.data.filetype});
+                } else {
+                    AnsiLove.render(evt.data.url, function (imagedata, sauce) {
+                        self.postMessage({"imagedata": imagedata, "sauce": sauce});
+                    }, {"imagedata": 1, "font": evt.data.font, "bits": evt.data.bits, "icecolors": evt.data.icecolors, "columns": evt.data.columns, "thumbnail": evt.data.thumbnail, "filetype": evt.data.filetype});
+                }
+            }
+        };
+    }
+}());

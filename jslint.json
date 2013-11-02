@@ -7,6 +7,10 @@
         "AnsiLove",
         "Uint8Array",
         "Uint32Array",
-        "FileReader"
+        "FileReader",
+        "self",
+        "onmessage",
+        "postMessage",
+        "Worker"
     ]
 }
