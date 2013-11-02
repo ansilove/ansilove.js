@@ -304,7 +304,7 @@ var AnsiLove = (function () {
 
         fontBitsBuffer = {};
 
-        function font(bits, width, height, fontSize, amigaFont) {
+        function font(bits, width, height, amigaFont) {
             var fontBitWidth, fontBuffer, fontBuffer24Bit;
             fontBitWidth = width * height;
             fontBuffer = [];
@@ -349,16 +349,15 @@ var AnsiLove = (function () {
             return {
                 "getData": getData,
                 "get24BitData": get24BitData,
-                "fontSize": fontSize,
                 "height": height,
                 "width" : width
             };
         }
 
-        function bytesToBits(file, width, height, fontSize) {
+        function bytesToBits(file, width, height) {
             var bits, i, j, k, v;
-            bits = new Uint8Array(width * height * fontSize);
-            for (i = width * height * fontSize / 8, k = 0; i > 0; --i) {
+            bits = new Uint8Array(width * height * 256);
+            for (i = width * height * 256 / 8, k = 0; i > 0; --i) {
                 v = file.get();
                 for (j = 7; j >= 0; --j) {
                     bits[k++] = !!((v >> j) & 1);
@@ -367,16 +366,16 @@ var AnsiLove = (function () {
             return bits;
         }
 
-        function getFontFromFile(file, width, height, fontSize, amigaFont) {
+        function getFontFromFile(file, width, height, amigaFont) {
             var fontBitWidth, fontBuffer, fontBuffer24Bit;
             fontBitWidth = width * height;
             fontBuffer = [];
             fontBuffer24Bit = new Uint8Array(width * height * 4);
-            return font(bytesToBits(file, width, height, fontSize), width, height, fontSize, amigaFont);
+            return font(bytesToBits(file, width, height), width, height, amigaFont);
         }
 
         function preset(name) {
-            var bytes, file, width, height;
+            var bytes;
             switch (name) {
             case "amiga":
                 name = "topaz";
@@ -395,19 +394,17 @@ var AnsiLove = (function () {
                 bytes = new Uint8Array(atob(FONT_PRESETS[name].data).split("").map(function (c) {
                     return c.charCodeAt(0);
                 }));
-                width = FONT_PRESETS[name].width;
-                height = FONT_PRESETS[name].height;
-                fontBitsBuffer[name] = bytesToBits(new File(bytes), width, height, 256);
+                fontBitsBuffer[name] = bytesToBits(new File(bytes), FONT_PRESETS[name].width, FONT_PRESETS[name].height);
             }
-            return font(fontBitsBuffer[name], width, height, 256, FONT_PRESETS[name].amigaFont);
+            return font(fontBitsBuffer[name], FONT_PRESETS[name].width, FONT_PRESETS[name].height, FONT_PRESETS[name].amigaFont);
         }
 
-        function xbin(file, fontHeight, char512) {
-            return getFontFromFile(file, 8, fontHeight, char512 ? 512 : 256, false);
+        function xbin(file, fontHeight) {
+            return getFontFromFile(file, 8, fontHeight, false);
         }
 
         function font8x16x256(file) {
-            return getFontFromFile(file, 8, 16, 256, false);
+            return getFontFromFile(file, 8, 16, false);
         }
 
         function has(name) {
@@ -747,7 +744,7 @@ var AnsiLove = (function () {
         header = new XBinHeader(file);
 
         palette = header.palette ? Palette.triplets16(file) : Palette.BIN;
-        font = header.font ? Font.xbin(file, header.fontHeight, header.char512) : Font.preset("80x25");
+        font = header.font ? Font.xbin(file, header.fontHeight) : Font.preset("80x25");
         imageData = header.compressed ? uncompress(file, header.width, header.height) : file.read(header.width * header.height * 2);
 
         return {
