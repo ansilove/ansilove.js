@@ -18,9 +18,13 @@
     <body>
         <div id="container"></div>
 <script type="text/javascript">
-AnsiLove.splitRender("packs/blocktronics_acid_trip/blocktronics_acid_trip.ans", function (canvases) {
-    "use strict";
-    var divContainer;
+var worker;
+worker = new Worker("../ansilove.js");
+worker.onmessage = function (evt) {
+    var canvases, divContainer;
+    canvases = evt.data.splitimagedata.map(function (imagedata) {
+        return AnsiLove.displayDataToCanvas(imagedata);
+    });
     divContainer = document.getElementById("container");
     divContainer.style.width = (canvases.length * 80) + "px";
     divContainer.style.margin = "32px auto";
@@ -28,7 +32,8 @@ AnsiLove.splitRender("packs/blocktronics_acid_trip/blocktronics_acid_trip.ans", 
         divContainer.appendChild(canvas);
     });
     document.body.appendChild(divContainer);
-}, 297, {"thumbnail": 1});
+};
+worker.postMessage({"url": "/blocktronics-infinite-scroller/packs/blocktronics_acid_trip/blocktronics_acid_trip.ans", "split": 297, "thumbnail": 1});
 </script>
     </body>
 </html>
