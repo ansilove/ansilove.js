@@ -10,17 +10,6 @@ document.addEventListener("DOMContentLoaded", function () {
         evt.dataTransfer.dropEffect = "copy";
     }, false);
 
-    function settings(filetype) {
-        return {
-            "bits": document.getElementById("bits").value,
-            "font": document.getElementById("font").value,
-            "icecolors": document.getElementById("icecolors").checked ? 1 : 0,
-            "columns": parseInt(document.getElementById("columns").value, 10),
-            "thumbnail": parseInt(document.getElementById("thumbnail").value, 10),
-            "filetype": filetype
-        };
-    }
-
     function removeExtension(text) {
         var index;
         index = text.lastIndexOf(".");
@@ -31,51 +20,13 @@ document.addEventListener("DOMContentLoaded", function () {
         return text.split(".").pop().toLowerCase();
     }
 
-    function readFile(name, file, callback) {
-        var reader;
-        reader = new FileReader();
-        reader.onload = function (data) {
-            var split;
-            split = parseInt(document.getElementById("split").value, 10);
-            if (split) {
-                try {
-                    AnsiLove.splitRenderBytes(new Uint8Array(data.target.result), function (canvases) {
-                        var canvas, ctx, i, zeroPadding;
-                        if (document.getElementById("combine").checked) {
-                            canvas = document.createElement("canvas");
-                            canvas.width = canvases[0].width * canvases.length;
-                            canvas.height = canvases[0].height;
-                            ctx = canvas.getContext("2d");
-                            for (i = 0; i < canvases.length; ++i) {
-                                ctx.drawImage(canvases[i], i * canvases[i].width, 0);
-                            }
-                            callback(removeExtension(name) + "_split", canvas);
-                        } else {
-                            for (i = 0; i < canvases.length; ++i) {
-                                zeroPadding = i.toString(10);
-                                while (zeroPadding.length < 4) {
-                                    zeroPadding = "0" + zeroPadding;
-                                }
-                                callback(removeExtension(name) + "_" + zeroPadding, canvases[i]);
-                            }
-                        }
-                    }, split, settings(getExtension(name)));
-                } catch (splitRenderException) {
-                    alert("An error occured whilst attempting to render " + name);
-                    callback(removeExtension(name), undefined);
-                }
-            } else {
-                try {
-                    AnsiLove.renderBytes(new Uint8Array(data.target.result), function (canvas) {
-                        callback(removeExtension(name), canvas);
-                    }, settings(getExtension(name)));
-                } catch (renderException) {
-                    alert("An error occured whilst attempting to render " + name);
-                    callback(removeExtension(name), undefined);
-                }
-            }
-        };
-        reader.readAsArrayBuffer(file);
+    function zeroPadding(num) {
+        var text;
+        text = num.toString(10);
+        while (text.length < 4) {
+            text = "0" + text;
+        }
+        return text;
     }
 
     function clearElement(element) {
@@ -90,15 +41,20 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    function removeFile(index, element) {
+    function removeFile(name, element) {
         return function (evt) {
-            var divFilenames;
+            var divFilenames, i;
             evt.preventDefault();
             divFilenames = document.getElementById("filenames");
-            delete files[index];
             divFilenames.removeChild(element);
             if (divFilenames.childNodes.length === 0) {
                 document.getElementById("clear-filenames").style.display = "none";
+            }
+            for (i = 0; i < files.length; i++) {
+                if (files[i].name === name) {
+                    files.splice(i, 1);
+                    break;
+                }
             }
         };
     }
@@ -118,7 +74,7 @@ document.addEventListener("DOMContentLoaded", function () {
             p.appendChild(span);
             p.appendChild(removeAnchor);
             document.getElementById("filenames").appendChild(p);
-            removeAnchor.onclick = removeFile(files.length, p);
+            removeAnchor.onclick = removeFile(evt.dataTransfer.files[i].name, p);
             files.push(evt.dataTransfer.files[i]);
         }
         document.getElementById("clear-filenames").style.display = "block";
@@ -164,54 +120,118 @@ document.addEventListener("DOMContentLoaded", function () {
         };
     }
 
-    document.getElementById("render-link").onclick = function (evt) {
-        var i, imageAnchor, previewAnchor, removeAnchor, paragraph;
-        evt.preventDefault();
-        document.getElementById("modal-overlay").style.visibility = "visible";
-        document.body.style.overflow = "hidden";
-        i = 0;
+    function addImageToList(canvas, name) {
+        var imageAnchor, previewAnchor, removeAnchor, paragraph;
+        if (canvas !== undefined) {
+            imageAnchor = document.createElement("a");
+            imageAnchor.href = canvas.toDataURL("image/png");
+            name = name + "_" + canvas.width + "x" + canvas.height + ".png";
+            imageAnchor.download = name;
+            imageAnchor.textContent = name;
+            previewAnchor = document.createElement("a");
+            previewAnchor.textContent = "preview";
+            previewAnchor.href = "#";
+            previewAnchor.className = "preview-link";
+            previewAnchor.onclick = previewImage(canvas);
+            removeAnchor = document.createElement("a");
+            removeAnchor.href = "#";
+            removeAnchor.textContent = "X";
+            removeAnchor.className = "remove-link";
+            paragraph = document.createElement("p");
+            paragraph.appendChild(imageAnchor);
+            paragraph.appendChild(previewAnchor);
+            paragraph.appendChild(removeAnchor);
+            document.getElementById("output").appendChild(paragraph);
+            removeAnchor.onclick = removeLink(paragraph);
+            document.getElementById("clear-output").style.display = "block";
+        }
+    }
 
-        function nextItem() {
-            if (i < files.length) {
-                if (files[i] !== undefined) {
-                    readFile(files[i].name, files[i], function (name, canvas) {
-                        if (canvas !== undefined) {
-                            imageAnchor = document.createElement("a");
-                            imageAnchor.href = canvas.toDataURL("image/png");
-                            name = name + "_" + canvas.width + "x" + canvas.height + ".png";
-                            imageAnchor.download = name;
-                            imageAnchor.textContent = name;
-                            previewAnchor = document.createElement("a");
-                            previewAnchor.textContent = "preview";
-                            previewAnchor.href = "#";
-                            previewAnchor.className = "preview-link";
-                            previewAnchor.onclick = previewImage(canvas);
-                            removeAnchor = document.createElement("a");
-                            removeAnchor.href = "#";
-                            removeAnchor.textContent = "X";
-                            removeAnchor.className = "remove-link";
-                            paragraph = document.createElement("p");
-                            paragraph.appendChild(imageAnchor);
-                            paragraph.appendChild(previewAnchor);
-                            paragraph.appendChild(removeAnchor);
-                            document.getElementById("output").appendChild(paragraph);
-                            removeAnchor.onclick = removeLink(paragraph);
-                            document.getElementById("clear-output").style.display = "block";
-                        }
-                        ++i;
-                        nextItem();
-                    });
-                } else {
-                    ++i;
-                    nextItem();
-                }
-            } else {
-                document.getElementById("modal-overlay").style.visibility = "hidden";
-                document.body.style.overflow = "auto";
-            }
+    function combineCanvases(canvases) {
+        var canvas, ctx, i;
+        canvas = document.createElement("canvas");
+        canvas.width = canvases[0].width * canvases.length;
+        canvas.height = canvases[0].height;
+        ctx = canvas.getContext("2d");
+        for (i = 0; i < canvases.length; ++i) {
+            ctx.drawImage(canvases[i], i * canvases[i].width, 0);
+        }
+        return canvas;
+    }
+
+    document.getElementById("render-link").onclick = function (evt) {
+        var workers, readers, timer, i, completed;
+        evt.preventDefault();
+        workers = [];
+        readers = [];
+        completed = 0;
+
+        function showModal() {
+            document.getElementById("modal-overlay").style.visibility = "visible";
+            document.body.style.overflow = "hidden";
         }
 
-        setTimeout(nextItem, 250);
+        function removeModal() {
+            clearTimeout(timer);
+            document.getElementById("modal-overlay").style.visibility = "hidden";
+            document.body.style.overflow = "auto";
+        }
+
+        if (files.length > 0) {
+            timer = setTimeout(showModal, 100);
+        }
+
+        function fileOnLoadHandler(worker, file) {
+            return function (data) {
+                var settings;
+                settings = {
+                    "bytes":  new Uint8Array(data.target.result),
+                    "bits": document.getElementById("bits").value,
+                    "font": document.getElementById("font").value,
+                    "icecolors": document.getElementById("icecolors").checked ? 1 : 0,
+                    "columns": parseInt(document.getElementById("columns").value, 10),
+                    "thumbnail": parseInt(document.getElementById("thumbnail").value, 10),
+                    "split": parseInt(document.getElementById("split").value, 10),
+                    "filetype": getExtension(file.name)
+                };
+                worker.postMessage(settings);
+            };
+        }
+
+        function workerOnMessageHandler(file) {
+            return function (evt) {
+                var canvas, combined, canvases, name, i;
+                if (evt.data.splitimagedata) {
+                    combined = document.getElementById("combine").checked;
+                    name = removeExtension(file.name) + "_";
+                    if (document.getElementById("combine").checked) {
+                        canvases = evt.data.splitimagedata.map(function (imagedata) {
+                            return AnsiLove.displayDataToCanvas(imagedata);
+                        });
+                        addImageToList(combineCanvases(canvases), name + "split");
+                    } else {
+                        for (i = 0; i < evt.data.splitimagedata.length; ++i) {
+                            canvas = AnsiLove.displayDataToCanvas(evt.data.splitimagedata[i]);
+                            addImageToList(canvas, name + zeroPadding(i));
+                        }
+                    }
+                } else {
+                    canvas = AnsiLove.displayDataToCanvas(evt.data.imagedata);
+                    addImageToList(canvas, file.name);
+                }
+                if (++completed === files.length) {
+                    removeModal();
+                }
+            };
+        }
+
+        for (i = 0; i < files.length; ++i) {
+            workers[i] = new Worker("../ansilove.js");
+            workers[i].onmessage = workerOnMessageHandler(files[i]);
+            readers[i] = new FileReader();
+            readers[i].onload = fileOnLoadHandler(workers[i], files[i]);
+            readers[i].readAsArrayBuffer(files[i]);
+        }
     };
 
     document.getElementById("preview-overlay").onclick = function () {
