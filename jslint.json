@@ -4,9 +4,13 @@
     "devel": true,
     "plusplus": true,
     "predef": [
-        "atob",
         "AnsiLove",
         "Uint8Array",
-        "FileReader"
+        "Uint32Array",
+        "FileReader",
+        "self",
+        "onmessage",
+        "postMessage",
+        "Worker"
     ]
 }
