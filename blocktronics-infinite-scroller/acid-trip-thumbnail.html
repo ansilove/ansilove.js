@@ -13,27 +13,32 @@
         image-rendering: -webkit-optimize-contrast;
         image-rendering: -moz-crisp-edges;
     }
+    #container {
+        width: 880px;
+        margin: 32px auto;
+    }
     </style>
 </head>
     <body>
         <div id="container"></div>
 <script type="text/javascript">
-var worker;
+var worker, retina;
+retina = window.devicePixelRatio > 1;
 worker = new Worker("../ansilove.js");
 worker.onmessage = function (evt) {
     var canvases, divContainer;
     canvases = evt.data.splitimagedata.map(function (imagedata) {
         return AnsiLove.displayDataToCanvas(imagedata);
     });
-    divContainer = document.getElementById("container");
-    divContainer.style.width = (canvases.length * 80) + "px";
-    divContainer.style.margin = "32px auto";
     canvases.forEach(function (canvas) {
-        divContainer.appendChild(canvas);
+        if (retina) {
+            canvas.style.width = (canvas.width / 2) + "px";
+            canvas.style.height = (canvas.height / 2) + "px";
+        }
+        document.getElementById("container").appendChild(canvas);
     });
-    document.body.appendChild(divContainer);
 };
-worker.postMessage({"url": "blocktronics-infinite-scroller/packs/blocktronics_acid_trip/blocktronics_acid_trip.ans", "split": 297, "thumbnail": 1});
+worker.postMessage({"url": "blocktronics-infinite-scroller/packs/blocktronics_acid_trip/blocktronics_acid_trip.ans", "split": 297, "thumbnail": retina ? 2: 1});
 </script>
     </body>
 </html>
