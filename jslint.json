@@ -4,9 +4,9 @@
     "devel": true,
     "plusplus": true,
     "predef": [
-        "atob",
         "AnsiLove",
         "Uint8Array",
+        "Uint32Array",
         "FileReader"
     ]
 }

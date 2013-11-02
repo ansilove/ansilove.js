@@ -123,7 +123,7 @@ var AnsiLove = (function () {
     }
 
     Font = (function () {
-        var FONT_PRESETS, fontBitsBuffer;
+        var FONT_PRESETS, BASE64_CHARS, fontBitsBuffer;
 
         FONT_PRESETS = {
             "b-strict": {
@@ -302,6 +302,8 @@ var AnsiLove = (function () {
             }
         };
 
+        BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+
         fontBitsBuffer = {};
 
         function font(bits, width, height, amigaFont) {
@@ -374,8 +376,23 @@ var AnsiLove = (function () {
             return font(bytesToBits(file, width, height), width, height, amigaFont);
         }
 
+        function base64ToFile(text) {
+            var i, j, bytes16, bytes8;
+            bytes16 = new Uint32Array(1);
+            bytes8 = new Uint8Array(text.length / 4 * 3);
+            for (i = j = 0; i < text.length; bytes16[0] = 0) {
+                bytes16[0] += (BASE64_CHARS.indexOf(text.charAt(i++)) & 63) << 18;
+                bytes16[0] += (BASE64_CHARS.indexOf(text.charAt(i++)) & 63) << 12;
+                bytes16[0] += (BASE64_CHARS.indexOf(text.charAt(i++)) & 63) << 6;
+                bytes16[0] += BASE64_CHARS.indexOf(text.charAt(i++)) & 63;
+                bytes8[j++] = (bytes16[0] >> 16) & 255;
+                bytes8[j++] = (bytes16[0] >> 8) & 255;
+                bytes8[j++] = bytes16[0] & 255;
+            }
+            return new File(bytes8);
+        }
+
         function preset(name) {
-            var bytes;
             switch (name) {
             case "amiga":
                 name = "topaz";
@@ -391,10 +408,7 @@ var AnsiLove = (function () {
                 break;
             }
             if (!fontBitsBuffer[name]) {
-                bytes = new Uint8Array(atob(FONT_PRESETS[name].data).split("").map(function (c) {
-                    return c.charCodeAt(0);
-                }));
-                fontBitsBuffer[name] = bytesToBits(new File(bytes), FONT_PRESETS[name].width, FONT_PRESETS[name].height);
+                fontBitsBuffer[name] = bytesToBits(base64ToFile(FONT_PRESETS[name].data), FONT_PRESETS[name].width, FONT_PRESETS[name].height);
             }
             return font(fontBitsBuffer[name], FONT_PRESETS[name].width, FONT_PRESETS[name].height, FONT_PRESETS[name].amigaFont);
         }
