@@ -41,9 +41,16 @@ document.addEventListener("DOMContentLoaded", function () {
         divPreviewOverlay.style.visibility = "visible";
         divPreviewContainer = document.getElementById("preview-container");
         clearElement(divPreviewContainer);
+        if (window.devicePixelRatio > 1) {
+            canvas.style.width = (canvas.width / 2) + "px";
+            canvas.style.height = (canvas.height / 2) + "px";
+            divPreviewContainer.style.width = (canvas.width / 2) + "px";
+            divPreviewContainer.style.height = (canvas.height / 2) + "px";
+        } else {
+            divPreviewContainer.style.width = canvas.width + "px";
+            divPreviewContainer.style.height = canvas.height + "px";
+        }
         divPreviewContainer.appendChild(canvas);
-        divPreviewContainer.style.width = canvas.width + "px";
-        divPreviewContainer.style.height = canvas.height + "px";
         controller.play(baudrate, function () {
             timer = setTimeout(callback, 3000);
         });

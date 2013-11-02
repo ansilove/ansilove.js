@@ -100,7 +100,13 @@ document.addEventListener("DOMContentLoaded", function () {
             divPreviewContainer = document.getElementById("preview-container");
             clearElement(divPreviewContainer);
             divPreviewContainer.appendChild(canvas);
-            divPreviewContainer.style.width = canvas.width + "px";
+            if (window.devicePixelRatio > 1) {
+                canvas.style.width = (canvas.width / 2) + "px";
+                canvas.style.height = (canvas.height / 2) + "px";
+                divPreviewContainer.style.width = (canvas.width / 2) + "px";
+            } else {
+                divPreviewContainer.style.width = canvas.width + "px";
+            }
             divPreviewContainer.scrollTop = 0;
             divPreviewContainer.scrollLeft = 0;
             document.getElementById("preview-overlay").style.visibility = "visible";
