@@ -112,7 +112,15 @@ var AnsiLove = (function () {
         }
         pos = 0;
 
-        this.size = this.sauce ? this.sauce.fileSize : bytes.length;
+        if (this.sauce) {
+            if (this.sauce.fileSize > 0 && this.sauce.fileSize < bytes.length) {
+                this.size = this.sauce.fileSize;
+            } else {
+                this.size = bytes.length - 128;
+            }
+        } else {
+            this.size = bytes.length;
+        }
     }
 
     function createCanvas(width, height) {
