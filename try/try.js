@@ -189,7 +189,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
         function fileOnLoadHandler(worker, file) {
             return function (data) {
-                var settings;
+                var settings, filetype;
+                filetype = document.getElementById("filetype").value;
                 settings = {
                     "bytes":  new Uint8Array(data.target.result),
                     "bits": document.getElementById("bits").value,
@@ -198,10 +199,10 @@ document.addEventListener("DOMContentLoaded", function () {
                     "columns": parseInt(document.getElementById("columns").value, 10),
                     "thumbnail": parseInt(document.getElementById("thumbnail").value, 10),
                     "split": parseInt(document.getElementById("split").value, 10),
-                    "filetype": getExtension(file.name)
+                    "filetype": (filetype === "auto") ? getExtension(file.name) : filetype
                 };
-                worker.addEventListener("error", function (e) {
-                    alert("An error occured whilst attempting to render " + file.name);
+                worker.addEventListener("error", function (error) {
+                    alert("An error occured whilst attempting to render " + file.name + "\n" + error.message);
                     if (++completed === files.length) {
                         removeModal();
                     }

@@ -107,6 +107,21 @@
                 <label for="combine">Combine split images: </label>
                 <input id="combine" type="checkbox" name="combine">
             </p>
+            <p>
+                <label for="filetype">Filetype: </label>
+                <select id="filetype" name="filetype">
+                    <option value="auto" selected>auto (Default, based on the file extension)</option>
+                    <option value="ans">ans (ANSi)</option>
+                    <option value="asc">asc, txt, nfo (8-bit ASCii)</option>
+                    <option value="diz">diz, ion (8-bit ASCii, with a trimmed column-width)</option>
+                    <option value="adf">adf (Artworx data format)</option>
+                    <option value="bin">bin (Raw VGA video dump)</option>
+                    <option value="idf">idf (iCE draw format)</option>
+                    <option value="pcb">pcb (PCBoard file format)</option>
+                    <option value="tnd">tnd (Tundra file format)</option>
+                    <option value="xb">xb (XBin file format)</option>
+                </select>
+            </p>
         </form>
 
         <div id="file-drop" class="box">
