@@ -104,7 +104,7 @@ var AnsiLove = (function () {
                 pos = bytes.length - 128 - (commentCount * 64) - 5;
                 if (this.lookahead(COMNT_ID)) {
                     this.getS(5);
-                    while (--commentCount > 0) {
+                    while (commentCount-- > 0) {
                         this.sauce.comments.push(this.getS(64));
                     }
                 }
