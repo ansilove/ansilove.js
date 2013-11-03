@@ -200,6 +200,12 @@ document.addEventListener("DOMContentLoaded", function () {
                     "split": parseInt(document.getElementById("split").value, 10),
                     "filetype": getExtension(file.name)
                 };
+                worker.addEventListener("error", function (e) {
+                    alert("An error occured whilst attempting to render " + file.name);
+                    if (++completed === files.length) {
+                        removeModal();
+                    }
+                }, false);
                 worker.postMessage(settings);
             };
         }
@@ -232,7 +238,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         for (i = 0; i < files.length; ++i) {
-            workers[i] = new Worker("../ansilove.js");
+            workers[i] = new Worker("../ansilove.js?");
             workers[i].onmessage = workerOnMessageHandler(files[i]);
             readers[i] = new FileReader();
             readers[i].onload = fileOnLoadHandler(workers[i], files[i]);
