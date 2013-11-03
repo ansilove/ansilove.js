@@ -1279,6 +1279,7 @@ var AnsiLove = (function () {
         }
         data.imageData = imageData;
         data.width = maxX + 1;
+        data.rowLength = data.width * 2;
         return data;
     }
 
