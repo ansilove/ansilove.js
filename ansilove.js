@@ -1037,7 +1037,7 @@ var AnsiLove = (function () {
         escapeCode = "";
         escaped = false;
 
-        if (file.sauce) {
+        if (file.sauce && file.sauce.tInfo1 > 0) {
             columns = file.sauce.tInfo1;
         } else if (options.mode === "ced") {
             columns = 78;
@@ -1395,7 +1395,7 @@ var AnsiLove = (function () {
             palette = Palette.ANSI;
         }
 
-        if (file.sauce) {
+        if (file.sauce && file.sauce.tInfo1 > 0) {
             columns = file.sauce.tInfo1;
         } else if (options.mode === "ced") {
             columns = 78;
