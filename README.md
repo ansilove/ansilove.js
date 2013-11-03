@@ -82,6 +82,7 @@ If a function is passed after the options object of any method, then it will be 
 ### PC font options: 
 
  - 80x25 (Default, code page 437)
+ - 80x25small (small, but legible code page 437)
  - 80x50 (Code page 437, 80x50 mode)
  - armenian
  - baltic (Code page 775)
