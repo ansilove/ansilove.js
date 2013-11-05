@@ -1260,8 +1260,6 @@ var AnsiLove = (function () {
                 default:
                     if (callbackFail) {
                         callbackFail(http.status);
-                    } else {
-                        throw ("Could not retrieve: " + url);
                     }
                 }
             }
@@ -1721,12 +1719,20 @@ var AnsiLove = (function () {
     return {
         "render": function (url, callback, options, callbackFail) {
             httpGet(url, function (bytes) {
-                render(url, bytes, callback, 0, options || {});
+                try {
+                    render(url, bytes, callback, 0, options || {});
+                } catch (e) {
+                    callbackFail(e);
+                }
             }, callbackFail);
         },
         "splitRender": function (url, callback, splitRows, options, callbackFail) {
             httpGet(url, function (bytes) {
-                render(url, bytes, callback, splitRows || 27, options || {});
+                try {
+                    render(url, bytes, callback, splitRows || 27, options || {});
+                } catch (e) {
+                    callbackFail(e);
+                }
             }, callbackFail);
         },
         "renderBytes": function (bytes, callback, options) {
