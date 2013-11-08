@@ -1,6 +1,6 @@
 var AnsiLove = (function () {
     "use strict";
-    var Palette, Font;
+    var Palette, Font, Popup;
 
     function File(bytes) {
         var pos, SAUCE_ID, COMNT_ID, commentCount;
@@ -1299,7 +1299,7 @@ var AnsiLove = (function () {
         return canvas;
     }
 
-    function render(name, bytes, callback, splitRows, options) {
+    function readBytes(name, bytes, callback, splitRows, options) {
         var data, font, returnArray, start, splitLength, displayData;
 
         options.icecolors = (options.icecolors >= 0 && options.icecolors <= 1) ? options.icecolors : 0;
@@ -1695,10 +1695,46 @@ var AnsiLove = (function () {
         };
     }
 
+    function render(url, callback, options, callbackFail) {
+        httpGet(url, function (bytes) {
+            try {
+                readBytes(url, bytes, callback, 0, options || {});
+            } catch (e) {
+                if (callbackFail) {
+                    callbackFail(e);
+                } else {
+                    throw e;
+                }
+            }
+        }, callbackFail);
+    }
+
+    function splitRender(url, callback, splitRows, options, callbackFail) {
+        httpGet(url, function (bytes) {
+            try {
+                readBytes(url, bytes, callback, splitRows || 27, options || {});
+            } catch (e) {
+                if (callbackFail) {
+                    callbackFail(e);
+                } else {
+                    throw e;
+                }
+            }
+        }, callbackFail);
+    }
+
+    function renderBytes(bytes, callback, options) {
+        readBytes("", bytes, callback, 0, options || {});
+    }
+
+    function splitRenderBytes(bytes, callback, splitRows, options) {
+        readBytes("", bytes, callback, splitRows || 27, options || {});
+    }
+
     function animate(url, callback, options, callbackFail) {
         var ansimation;
         httpGet(url, function (bytes) {
-            ansimation = new Ansimation(bytes, options);
+            ansimation = new Ansimation(bytes, options || {});
             callback(ansimation.canvas, ansimation.sauce);
         }, callbackFail);
         return {
@@ -1716,62 +1752,206 @@ var AnsiLove = (function () {
         };
     }
 
-    return {
-        "render": function (url, callback, options, callbackFail) {
-            httpGet(url, function (bytes) {
-                try {
-                    render(url, bytes, callback, 0, options || {});
-                } catch (e) {
-                    if (callbackFail) {
-                        callbackFail(e);
-                    } else {
-                        throw e;
+    function animateBytes(bytes, callback, options) {
+        var ansimation;
+        ansimation = new Ansimation(bytes, options || {});
+        setTimeout(function () {
+            callback(ansimation.canvas, ansimation.sauce);
+        }, 250);
+        return {
+            "play": function (baud, callback, clearScreen) {
+                ansimation.play(baud, callback, clearScreen);
+            },
+            "stop": function () {
+                ansimation.stop();
+            },
+            "load": function (url, callback, callbackFail) {
+                httpGet(url, function (bytes) {
+                    ansimation.load(bytes, callback);
+                }, callbackFail);
+            }
+        };
+    }
+
+    Popup = (function () {
+        var STYLE_DEFAULTS, FIREFOX, CHROME, SAFARI, browser, retina;
+
+        STYLE_DEFAULTS = {"background-color": "transparent", "background-image": "none", "margin": "0", "padding": "0", "border": "0", "font-size": "100%", "font": "inherit", "vertical-align": "baseline", "color": "black", "display": "block", "cursor": "default", "text-align": "left", "text-shadow": "none", "text-transform": "none", "clear": "none", "float": "none", "overflow": "auto", "position": "relative", "visibility": "visible"};
+
+        FIREFOX = 0;
+        CHROME = 1;
+        SAFARI = 2;
+
+        if (navigator.userAgent.indexOf("Firefox") !== -1) {
+            browser = 0;
+        } else if (navigator.userAgent.indexOf("AppleWebKit") !== -1) {
+            if (navigator.userAgent.indexOf("Chrome") !== -1) {
+                browser = 1;
+            } else {
+                browser = 2;
+            }
+        }
+
+        retina = window.devicePixelRatio > 1;
+
+        function findHighestZIndex() {
+            var elements, highest, i, zIndex;
+            for (i = 0, elements = document.getElementsByTagName("*"), highest = 0; i < elements.length; ++i) {
+                zIndex = document.defaultView.getComputedStyle(elements[i]).zIndex;
+                if (zIndex !== "auto") {
+                    highest = Math.max(highest, parseInt(zIndex, 10));
+                }
+            }
+            return highest;
+        }
+
+        function applyStyle(element, style) {
+            var name;
+            for (name in style) {
+                if (style.hasOwnProperty(name)) {
+                    element.style.setProperty(name, style[name], "important");
+                }
+            }
+        }
+
+        function createDiv(style) {
+            var div;
+            style = style || {};
+            div = document.createElement("div");
+            applyStyle(div, STYLE_DEFAULTS);
+            applyStyle(div, style);
+            return div;
+        }
+
+        function transitionCSS(element, transProperty, transDuration, transFunction, style) {
+            element.style.transitionProperty = transProperty;
+            element.style.transitionDuration = transDuration;
+            element.style.transitionTimingFunction = transFunction;
+            if (style) {
+                setTimeout(function () {
+                    applyStyle(element, style);
+                }, 50);
+            }
+        }
+
+        function show(bytes, baud, options) {
+            var divOverlay, divCanvasContainer;
+
+            function slideUpContainer() {
+                transitionCSS(divCanvasContainer, "top", "0.6s", "ease-in-out", {"top": "0"});
+            }
+
+            function processCanvas(canvas) {
+                if (retina) {
+                    switch (browser) {
+                    case FIREFOX:
+                        canvas.style.imageRendering = "-moz-crisp-edges";
+                        break;
+                    case SAFARI:
+                        canvas.style.imageRendering = "-webkit-optimize-contrast";
+                        break;
                     }
                 }
-            }, callbackFail);
-        },
-        "splitRender": function (url, callback, splitRows, options, callbackFail) {
-            httpGet(url, function (bytes) {
-                try {
-                    render(url, bytes, callback, splitRows || 27, options || {});
-                } catch (e) {
-                    if (callbackFail) {
-                        callbackFail(e);
-                    } else {
-                        throw e;
-                    }
-                }
-            }, callbackFail);
-        },
-        "renderBytes": function (bytes, callback, options) {
-            render("", bytes, callback, 0, options || {});
-        },
-        "splitRenderBytes": function (bytes, callback, splitRows, options) {
-            render("", bytes, callback, splitRows || 27, options || {});
-        },
-        "animate": function (url, callback, options, callbackFail) {
-            return animate(url, callback, options || {}, callbackFail);
-        },
-        "animateBytes": function (bytes, callback, options) {
-            var ansimation;
-            ansimation = new Ansimation(bytes, options || {});
+
+                applyStyle(canvas, STYLE_DEFAULTS);
+                canvas.style.verticalAlign = "bottom";
+
+                return canvas;
+            }
+
+            function doubleScale(canvas) {
+                var scaledCanvas, ctx;
+                scaledCanvas = createCanvas(canvas.width * 2, canvas.height * 2);
+                ctx = scaledCanvas.getContext("2d");
+                ctx.webkitImageSmoothingEnabled = false;
+                ctx.drawImage(canvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
+                scaledCanvas.style.width = canvas.width + "px";
+                scaledCanvas.style.height = canvas.height + "px";
+                return scaledCanvas;
+            }
+
+            function error(message) {
+                alert("Error: " + message);
+                document.body.removeChild(divOverlay);
+            }
+
+            function dismiss(evt) {
+                evt.preventDefault();
+                document.body.removeChild(divOverlay);
+            }
+
+            divOverlay = createDiv({"position": "fixed", "left": "0px", "top": "0px", "width": "100%", "height": "100%", "background-color": "rgba(0, 0, 0, 0.8)", "overflow": "scroll", "z-index": (findHighestZIndex() + 1).toString(10), "opacity": "0"});
+            divCanvasContainer = createDiv({"background-color": "black", "box-shadow": "0 8px 32px rgb(0, 0, 0)", "margin": "8px auto", "padding": "16px", "border": "2px solid white", "border-radius": "8px", "top": "100%"});
+
+            divOverlay.appendChild(divCanvasContainer);
+            document.body.appendChild(divOverlay);
+
+            transitionCSS(divOverlay, "opacity", "0.2s", "ease-out", {"opacity": "1.0"});
+
             setTimeout(function () {
-                callback(ansimation.canvas, ansimation.sauce);
-            }, 250);
-            return {
-                "play": function (baud, callback, clearScreen) {
-                    ansimation.play(baud, callback, clearScreen);
-                },
-                "stop": function () {
-                    ansimation.stop();
-                },
-                "load": function (url, callback, callbackFail) {
-                    httpGet(url, function (bytes) {
-                        ansimation.load(bytes, callback);
-                    }, callbackFail);
+                var controller;
+                if (baud > 0) {
+                    controller = animateBytes(bytes, function (canvas) {
+                        divCanvasContainer.style.width = canvas.width + "px";
+                        divCanvasContainer.appendChild(processCanvas(canvas));
+                        slideUpContainer();
+                        setTimeout(function () {
+                            controller.play(baud);
+                        }, 750);
+                        divOverlay.onclick = dismiss;
+                    }, options, error);
+                } else {
+                    splitRenderBytes(bytes, function (canvases) {
+                        divCanvasContainer.style.width = canvases[0].width + "px";
+                        canvases.forEach(function (canvas) {
+                            if (retina && browser === CHROME) {
+                                canvas = doubleScale(canvas);
+                            }
+                            divCanvasContainer.appendChild(processCanvas(canvas));
+                        });
+                        slideUpContainer();
+                        divOverlay.onclick = dismiss;
+                    }, 100, options, error);
                 }
-            };
-        },
+            }, 250);
+        }
+
+        return {
+            "show": show
+        };
+    }());
+
+    function popupBytes(bytes, options) {
+        Popup.show(bytes, 0, options || {});
+    }
+
+    function popup(url, options) {
+        httpGet(url, function (bytes) {
+            popupBytes(bytes, options);
+        });
+    }
+
+    function popupAnimationBytes(bytes, baud, options) {
+        Popup.show(bytes, baud || 14400, options || {});
+    }
+
+    function popupAnimation(url, baud, options) {
+        httpGet(url, function (bytes) {
+            popupAnimationBytes(bytes, baud, options);
+        });
+    }
+
+    return {
+        "render": render,
+        "splitRender": splitRender,
+        "renderBytes": renderBytes,
+        "splitRenderBytes": splitRenderBytes,
+        "animate": animate,
+        "animateBytes": animateBytes,
+        "popup": popup,
+        "popupBytes": popupBytes,
+        "popupAnimation": popupAnimation,
+        "popupAnimationBytes": popupAnimationBytes,
         "displayDataToCanvas": displayDataToCanvas,
         "sauce": sauce
     };

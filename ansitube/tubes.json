@@ -2,72 +2,88 @@
     {
         "author": "Ansichrist",
         "baudrate": 28800,
-        "bits": "9",
-        "font": "80x25",
-        "icecolors": 0,
+        "settings": {
+            "bits": "9",
+            "font": "80x25",
+            "icecolors": 0
+        },
         "thumb": "thumbs/ns-bp09.png",
         "url": "../ans/ns-bp09.ans"
     },
     {
         "author": "Enzo and Cleaner",
         "baudrate": 28800,
-        "bits": "9",
-        "font": "80x25",
-        "icecolors": 0,
+        "settings": {
+            "bits": "9",
+            "font": "80x25",
+            "icecolors": 0
+        },
         "thumb": "thumbs/we-alove.png",
         "url": "../ans/we-alove.ans"
     },
     {
         "author": "BYM",
         "baudrate": 28800,
-        "bits": "9",
-        "font": "80x25",
-        "icecolors": 0,
+        "settings": {
+            "bits": "9",
+            "font": "80x25",
+            "icecolors": 0
+        },
         "thumb": "thumbs/bym-ansilove.png",
         "url": "../ans/bym-ansilove.ans"
     },
     {
         "author": "Cleaner",
         "baudrate": 28800,
-        "bits": "9",
-        "font": "80x25",
-        "icecolors": 0,
+        "settings": {
+            "bits": "9",
+            "font": "80x25",
+            "icecolors": 0
+        },
         "thumb": "thumbs/cl!-al03.png",
         "url": "../ans/cl!-al03.ans"
     },
     {
         "author": "Grymmjack",
         "baudrate": 28800,
-        "bits": "9",
-        "font": "80x25",
-        "icecolors": 0,
+        "settings": {
+            "bits": "9",
+            "font": "80x25",
+            "icecolors": 0
+        },
         "thumb": "thumbs/gj-ansilove.png",
         "url": "../ans/gj-ansilove.ans"
     },
     {
         "author": "Knocturnal",
         "baudrate": 28800,
-        "bits": "9",
-        "font": "80x25",
-        "icecolors": 0,
+        "settings": {
+            "bits": "9",
+            "font": "80x25",
+            "icecolors": 0
+        },
         "thumb": "thumbs/k1-alove.png",
         "url": "../ans/k1-alove.ans"
     },
     {
         "author": "Noches",
         "baudrate": 28800,
-        "bits": "9",
-        "font": "80x25",
-        "icecolors": 0,
+        "settings": {
+            "bits": "9",
+            "font": "80x25",
+            "icecolors": 0
+        },
         "thumb": "thumbs/no-alove.png",
         "url": "../ans/no-alove.ans"
     },
     {
         "author": "Noches and Avenging Angel",
         "baudrate": 28800,
-        "bits": "9",
-        "font": "80x25",
-        "icecolors": 0,
+        "settings": {
+            "bits": "9",
+            "font": "80x25",
+            "icecolors": 0
+        },
         "thumb": "thumbs/us-alov.png",
         "url": "../ans/us-alov.ans"
     }

@@ -41,15 +41,8 @@ document.addEventListener("DOMContentLoaded", function () {
         divPreviewOverlay.style.visibility = "visible";
         divPreviewContainer = document.getElementById("preview-container");
         clearElement(divPreviewContainer);
-        if (window.devicePixelRatio > 1) {
-            canvas.style.width = (canvas.width / 2) + "px";
-            canvas.style.height = (canvas.height / 2) + "px";
-            divPreviewContainer.style.width = (canvas.width / 2) + "px";
-            divPreviewContainer.style.height = (canvas.height / 2) + "px";
-        } else {
-            divPreviewContainer.style.width = canvas.width + "px";
-            divPreviewContainer.style.height = canvas.height + "px";
-        }
+        divPreviewContainer.style.width = canvas.width + "px";
+        divPreviewContainer.style.height = canvas.height + "px";
         divPreviewContainer.appendChild(canvas);
         controller.play(baudrate, function () {
             timer = setTimeout(callback, 3000);
@@ -62,18 +55,13 @@ document.addEventListener("DOMContentLoaded", function () {
         };
     }
 
-    function playTube(url, bits, font, icecolors, baudrate, element) {
+    function playTube(url, baudrate, settings) {
         return function () {
-            var controller;
-            element.style.opacity = "0.5";
-            controller = AnsiLove.animate(url, function (canvas) {
-                element.style.opacity = "1";
-                (function play() {
-                    animate(controller, baudrate, canvas, play);
-                }());
-            }, {"bits": bits, "font": font, "icecolors": icecolors}, function () {
-                element.style.opacity = "1";
-            });
+            if (baudrate > 0) {
+                AnsiLove.popupAnimation(url, baudrate, settings);
+            } else {
+                AnsiLove.popup(url, settings);
+            }
         };
     }
 
@@ -87,7 +75,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 paragraph = document.createElement("p");
                 paragraph.textContent = tubes[i].url.split("/").pop() + ", " + tubes[i].author;
                 divTubeLinks[i].appendChild(paragraph);
-                divTubeLinks[i].onclick = playTube(tubes[i].url, tubes[i].bits, tubes[i].font, tubes[i].icecolors, tubes[i].baudrate, divTubeLinks[i]);
+                divTubeLinks[i].onclick = playTube(tubes[i].url, tubes[i].baudrate, tubes[i].settings);
                 ++i;
                 next();
             }
