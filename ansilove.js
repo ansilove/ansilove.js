@@ -1834,7 +1834,7 @@ var AnsiLove = (function () {
             }
         }
 
-        function show(url, baud, options) {
+        function show(bytes, baud, options) {
             var divOverlay, divCanvasContainer;
 
             function slideUpContainer() {
@@ -1891,7 +1891,7 @@ var AnsiLove = (function () {
             setTimeout(function () {
                 var controller;
                 if (baud > 0) {
-                    controller = animate(url, function (canvas) {
+                    controller = animateBytes(bytes, function (canvas) {
                         divCanvasContainer.style.width = canvas.width + "px";
                         divCanvasContainer.appendChild(processCanvas(canvas));
                         slideUpContainer();
@@ -1901,7 +1901,7 @@ var AnsiLove = (function () {
                         divOverlay.onclick = dismiss;
                     }, options, error);
                 } else {
-                    splitRender(url, function (canvases) {
+                    splitRenderBytes(bytes, function (canvases) {
                         divCanvasContainer.style.width = canvases[0].width + "px";
                         canvases.forEach(function (canvas) {
                             if (retina && browser === CHROME) {
@@ -1921,12 +1921,24 @@ var AnsiLove = (function () {
         };
     }());
 
-    function popup(url, options) {
-        Popup.show(url, 0, options || {});
+    function popupBytes(bytes, options) {
+        Popup.show(bytes, 0, options || {});
     }
 
-    function popupAnimation(url, baud, options) {
-        Popup.show(url, baud || 14400, options || {});
+    function popup(url, options, callbackFail) {
+        httpGet(url, function (bytes) {
+            popupBytes(bytes, options);
+        }, callbackFail);
+    }
+
+    function popupAnimationBytes(bytes, baud, options) {
+        Popup.show(bytes, baud || 14400, options || {});
+    }
+
+    function popupAnimation(url, baud, options, callbackFail) {
+        httpGet(url, function (bytes) {
+            popupAnimationBytes(bytes, baud, options);
+        }, callbackFail);
     }
 
     return {
@@ -1937,7 +1949,9 @@ var AnsiLove = (function () {
         "animate": animate,
         "animateBytes": animateBytes,
         "popup": popup,
+        "popupBytes": popupBytes,
         "popupAnimation": popupAnimation,
+        "popupAnimationBytes": popupAnimationBytes,
         "displayDataToCanvas": displayDataToCanvas,
         "sauce": sauce
     };
