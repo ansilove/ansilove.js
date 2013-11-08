@@ -1722,7 +1722,11 @@ var AnsiLove = (function () {
                 try {
                     render(url, bytes, callback, 0, options || {});
                 } catch (e) {
-                    callbackFail(e);
+                    if (callbackFail) {
+                        callbackFail(e);
+                    } else {
+                        throw e;
+                    }
                 }
             }, callbackFail);
         },
@@ -1731,7 +1735,11 @@ var AnsiLove = (function () {
                 try {
                     render(url, bytes, callback, splitRows || 27, options || {});
                 } catch (e) {
-                    callbackFail(e);
+                    if (callbackFail) {
+                        callbackFail(e);
+                    } else {
+                        throw e;
+                    }
                 }
             }, callbackFail);
         },
