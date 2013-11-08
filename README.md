@@ -71,12 +71,12 @@ And for ANSImations, the animate function returns a controller object which when
         });
     }, {"bits": "9"});
 
-If a function is passed after the options object of any method, then it will be called in the event that the file cannot be fetched with the http status code.
+If a function is passed after the options object of any method, then it will be called in the event that the file cannot be fetched, or if an error occured whilst attempting to interpret the file.
 
     AnsiLove.render("example.ans", function (canvas, sauce) {
         ...
-    }, {}, function (httpStatus) {
-        alert("A " + httpStatus + " error occured.");
+    }, {}, function (message) {
+        alert("Error: " + message);
     });
 
 ### PC font options: 
