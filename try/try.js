@@ -95,21 +95,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function previewImage(canvas) {
         return function (evt) {
-            var divPreviewContainer;
+            var divPreviewContainer, divPreviewOverlay;
             evt.preventDefault();
             divPreviewContainer = document.getElementById("preview-container");
+            divPreviewOverlay = document.getElementById("preview-overlay");
             clearElement(divPreviewContainer);
             divPreviewContainer.appendChild(canvas);
-            if (window.devicePixelRatio > 1) {
-                canvas.style.width = (canvas.width / 2) + "px";
-                canvas.style.height = (canvas.height / 2) + "px";
-                divPreviewContainer.style.width = (canvas.width / 2) + "px";
-            } else {
-                divPreviewContainer.style.width = canvas.width + "px";
-            }
-            divPreviewContainer.scrollTop = 0;
-            divPreviewContainer.scrollLeft = 0;
-            document.getElementById("preview-overlay").style.visibility = "visible";
+            divPreviewContainer.style.width = canvas.width + "px";
+            divPreviewOverlay.scrollTop = 0;
+            divPreviewOverlay.scrollLeft = 0;
+            divPreviewOverlay.style.visibility = "visible";
             document.body.style.overflow = "hidden";
         };
     }
