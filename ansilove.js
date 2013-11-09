@@ -1837,6 +1837,9 @@ var AnsiLove = (function () {
                 var divOverlay, divCanvasContainer;
 
                 function slideUpContainer() {
+                    if (options.spinner) {
+                        applyStyle(divOverlay, {"background-image": "none"});
+                    }
                     transitionCSS(divCanvasContainer, "top", "0.6s", "ease-in-out", {"top": "0"});
                 }
 
@@ -1880,6 +1883,9 @@ var AnsiLove = (function () {
                 }
 
                 divOverlay = createDiv({"position": "fixed", "left": "0px", "top": "0px", "width": "100%", "height": "100%", "background-color": "rgba(0, 0, 0, 0.8)", "overflow": "scroll", "z-index": (findHighestZIndex() + 1).toString(10), "opacity": "0"});
+                if (options.spinner) {
+                    applyStyle(divOverlay, {"background-image": "url(" + options.spinner + ")", "background-position": "center center", "background-repeat": "no-repeat"});
+                }
                 divCanvasContainer = createDiv({"background-color": "black", "box-shadow": "0 8px 32px rgb(0, 0, 0)", "margin": "8px auto", "padding": "16px", "border": "2px solid white", "border-radius": "8px", "top": "100%"});
 
                 divOverlay.appendChild(divCanvasContainer);

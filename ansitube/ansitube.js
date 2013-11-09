@@ -57,6 +57,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function playTube(url, baudrate, settings) {
         return function () {
+            settings.spinner = "spinner.gif";
             if (baudrate > 0) {
                 AnsiLove.popupAnimation(url, baudrate, settings);
             } else {
