@@ -1650,46 +1650,54 @@ var AnsiLove = (function () {
             return i;
         }
 
+        function play(baud, callback, clearScreen) {
+            var length, drawBlink;
+            clearScreen = (clearScreen === undefined) ? true : clearScreen;
+            clearTimeout(timer);
+            clearInterval(interval);
+            drawBlink = false;
+            interval = setInterval(function () {
+                ctx.drawImage(blinkCanvas[drawBlink ? 1 : 0], 0, 0);
+                drawBlink = !drawBlink;
+            }, 250);
+            function drawChunk() {
+                if (read(length)) {
+                    timer = setTimeout(drawChunk, 10);
+                } else if (callback) {
+                    callback();
+                }
+            }
+            length = Math.floor((baud || 115200) / 8 / 100);
+            if (clearScreen) {
+                resetAll();
+            } else {
+                resetAttributes();
+                escapeCode = "";
+                escaped = false;
+                file.seek(0);
+            }
+            drawChunk();
+        }
+
+        function stop() {
+            clearTimeout(timer);
+            clearInterval(interval);
+        }
+
+        function load(bytes, callback) {
+            clearTimeout(timer);
+            file = new File(bytes);
+            callback(file.sauce);
+        }
+
         return {
             "canvas": canvas,
-            "play": function (baud, callback, clearScreen) {
-                var length, drawBlink;
-                clearScreen = (clearScreen === undefined) ? true : clearScreen;
-                clearTimeout(timer);
-                clearInterval(interval);
-                drawBlink = false;
-                interval = setInterval(function () {
-                    ctx.drawImage(blinkCanvas[drawBlink ? 1 : 0], 0, 0);
-                    drawBlink = !drawBlink;
-                }, 250);
-                function drawChunk() {
-                    if (read(length)) {
-                        timer = setTimeout(drawChunk, 10);
-                    } else if (callback) {
-                        callback();
-                    }
-                }
-                length = Math.floor((baud || 115200) / 8 / 100);
-                if (clearScreen) {
-                    resetAll();
-                } else {
-                    resetAttributes();
-                    escapeCode = "";
-                    escaped = false;
-                    file.seek(0);
-                }
-                drawChunk();
-            },
-            "stop": function () {
-                clearTimeout(timer);
-                clearInterval(interval);
-            },
-            "load": function (bytes, callback) {
-                clearTimeout(timer);
-                file = new File(bytes);
-                callback(file.sauce);
-            },
-            "sauce": file.sauce
+            "sauce": file.sauce,
+            "controller": {
+                "play": play,
+                "stop": stop,
+                "load": load
+            }
         };
     }
 
@@ -1737,6 +1745,15 @@ var AnsiLove = (function () {
         }, callbackFail);
     }
 
+    function animateBytes(bytes, callback, options) {
+        var ansimation;
+        ansimation = new Ansimation(bytes, options || {});
+        setTimeout(function () {
+            callback(ansimation.canvas, ansimation.sauce);
+        }, 250);
+        return ansimation.controller;
+    }
+
     function animate(url, callback, options, callbackFail) {
         var ansimation;
         httpGet(url, function (bytes) {
@@ -1745,35 +1762,14 @@ var AnsiLove = (function () {
         }, callbackFail);
         return {
             "play": function (baud, callback, clearScreen) {
-                ansimation.play(baud, callback, clearScreen);
+                ansimation.controller.play(baud, callback, clearScreen);
             },
             "stop": function () {
-                ansimation.stop();
+                ansimation.controller.stop();
             },
             "load": function (url, callback, callbackFail) {
                 httpGet(url, function (bytes) {
-                    ansimation.load(bytes, callback);
-                }, callbackFail);
-            }
-        };
-    }
-
-    function animateBytes(bytes, callback, options) {
-        var ansimation;
-        ansimation = new Ansimation(bytes, options || {});
-        setTimeout(function () {
-            callback(ansimation.canvas, ansimation.sauce);
-        }, 250);
-        return {
-            "play": function (baud, callback, clearScreen) {
-                ansimation.play(baud, callback, clearScreen);
-            },
-            "stop": function () {
-                ansimation.stop();
-            },
-            "load": function (url, callback, callbackFail) {
-                httpGet(url, function (bytes) {
-                    ansimation.load(bytes, callback);
+                    ansimation.controller.load(bytes, callback);
                 }, callbackFail);
             }
         };
