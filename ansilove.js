@@ -1299,7 +1299,7 @@ var AnsiLove = (function () {
         return canvas;
     }
 
-    function readBytes(name, bytes, callback, splitRows, options) {
+    function readBytes(bytes, callback, splitRows, options) {
         var data, font, returnArray, start, splitLength, displayData;
 
         options.icecolors = (options.icecolors >= 0 && options.icecolors <= 1) ? options.icecolors : 0;
@@ -1323,7 +1323,7 @@ var AnsiLove = (function () {
         }
         options.imagedata = (options.imagedata >= 0 && options.imagedata <= 1) ? options.imagedata : 0;
 
-        switch (options.filetype || name.split(".").pop().toLowerCase()) {
+        switch (options.filetype) {
         case "txt":
         case "nfo":
         case "asc":
@@ -1687,48 +1687,54 @@ var AnsiLove = (function () {
             "load": function (bytes, callback) {
                 clearTimeout(timer);
                 file = new File(bytes);
-                if (callback) {
-                    callback();
-                }
+                callback(file.sauce);
             },
             "sauce": file.sauce
         };
     }
 
+    function renderBytes(bytes, callback, options, callbackFail) {
+        try {
+            readBytes(bytes, callback, 0, options || {});
+        } catch (e) {
+            if (callbackFail) {
+                callbackFail(e);
+            } else {
+                throw e;
+            }
+        }
+    }
+
     function render(url, callback, options, callbackFail) {
         httpGet(url, function (bytes) {
-            try {
-                readBytes(url, bytes, callback, 0, options || {});
-            } catch (e) {
-                if (callbackFail) {
-                    callbackFail(e);
-                } else {
-                    throw e;
-                }
+            options = options || {};
+            if (!options.filetype) {
+                options.filetype = url.split(".").pop().toLowerCase();
             }
+            renderBytes(bytes, callback, options, callbackFail);
         }, callbackFail);
+    }
+
+    function splitRenderBytes(bytes, callback, splitRows, options, callbackFail) {
+        try {
+            readBytes(bytes, callback, splitRows || 27, options || {});
+        } catch (e) {
+            if (callbackFail) {
+                callbackFail(e);
+            } else {
+                throw e;
+            }
+        }
     }
 
     function splitRender(url, callback, splitRows, options, callbackFail) {
         httpGet(url, function (bytes) {
-            try {
-                readBytes(url, bytes, callback, splitRows || 27, options || {});
-            } catch (e) {
-                if (callbackFail) {
-                    callbackFail(e);
-                } else {
-                    throw e;
-                }
+            options = options || {};
+            if (!options.filetype) {
+                options.filetype = url.split(".").pop().toLowerCase();
             }
+            splitRenderBytes(bytes, callback, splitRows, options, callbackFail);
         }, callbackFail);
-    }
-
-    function renderBytes(bytes, callback, options) {
-        readBytes("", bytes, callback, 0, options || {});
-    }
-
-    function splitRenderBytes(bytes, callback, splitRows, options) {
-        readBytes("", bytes, callback, splitRows || 27, options || {});
     }
 
     function animate(url, callback, options, callbackFail) {
@@ -1773,172 +1779,178 @@ var AnsiLove = (function () {
         };
     }
 
-    Popup = (function () {
-        var STYLE_DEFAULTS, FIREFOX, CHROME, SAFARI, browser, retina;
+    if (!self.WorkerLocation) {
+        Popup = (function () {
+            var STYLE_DEFAULTS, FIREFOX, CHROME, SAFARI, browser, retina;
 
-        STYLE_DEFAULTS = {"background-color": "transparent", "background-image": "none", "margin": "0", "padding": "0", "border": "0", "font-size": "100%", "font": "inherit", "vertical-align": "baseline", "color": "black", "display": "block", "cursor": "default", "text-align": "left", "text-shadow": "none", "text-transform": "none", "clear": "none", "float": "none", "overflow": "auto", "position": "relative", "visibility": "visible"};
+            STYLE_DEFAULTS = {"background-color": "transparent", "background-image": "none", "margin": "0", "padding": "0", "border": "0", "font-size": "100%", "font": "inherit", "vertical-align": "baseline", "color": "black", "display": "block", "cursor": "default", "text-align": "left", "text-shadow": "none", "text-transform": "none", "clear": "none", "float": "none", "overflow": "auto", "position": "relative", "visibility": "visible"};
 
-        FIREFOX = 0;
-        CHROME = 1;
-        SAFARI = 2;
+            FIREFOX = 0;
+            CHROME = 1;
+            SAFARI = 2;
 
-        if (navigator.userAgent.indexOf("Firefox") !== -1) {
-            browser = 0;
-        } else if (navigator.userAgent.indexOf("AppleWebKit") !== -1) {
-            if (navigator.userAgent.indexOf("Chrome") !== -1) {
-                browser = 1;
-            } else {
-                browser = 2;
-            }
-        }
-
-        retina = window.devicePixelRatio > 1;
-
-        function findHighestZIndex() {
-            var elements, highest, i, zIndex;
-            for (i = 0, elements = document.getElementsByTagName("*"), highest = 0; i < elements.length; ++i) {
-                zIndex = document.defaultView.getComputedStyle(elements[i]).zIndex;
-                if (zIndex !== "auto") {
-                    highest = Math.max(highest, parseInt(zIndex, 10));
+            if (navigator.userAgent.indexOf("Firefox") !== -1) {
+                browser = 0;
+            } else if (navigator.userAgent.indexOf("AppleWebKit") !== -1) {
+                if (navigator.userAgent.indexOf("Chrome") !== -1) {
+                    browser = 1;
+                } else {
+                    browser = 2;
                 }
             }
-            return highest;
-        }
 
-        function applyStyle(element, style) {
-            var name;
-            for (name in style) {
-                if (style.hasOwnProperty(name)) {
-                    element.style.setProperty(name, style[name], "important");
-                }
-            }
-        }
+            retina = window.devicePixelRatio > 1;
 
-        function createDiv(style) {
-            var div;
-            style = style || {};
-            div = document.createElement("div");
-            applyStyle(div, STYLE_DEFAULTS);
-            applyStyle(div, style);
-            return div;
-        }
-
-        function transitionCSS(element, transProperty, transDuration, transFunction, style) {
-            element.style.transitionProperty = transProperty;
-            element.style.transitionDuration = transDuration;
-            element.style.transitionTimingFunction = transFunction;
-            if (style) {
-                setTimeout(function () {
-                    applyStyle(element, style);
-                }, 50);
-            }
-        }
-
-        function show(bytes, baud, options) {
-            var divOverlay, divCanvasContainer;
-
-            function slideUpContainer() {
-                transitionCSS(divCanvasContainer, "top", "0.6s", "ease-in-out", {"top": "0"});
-            }
-
-            function processCanvas(canvas) {
-                if (retina) {
-                    switch (browser) {
-                    case FIREFOX:
-                        canvas.style.imageRendering = "-moz-crisp-edges";
-                        break;
-                    case SAFARI:
-                        canvas.style.imageRendering = "-webkit-optimize-contrast";
-                        break;
+            function findHighestZIndex() {
+                var elements, highest, i, zIndex;
+                for (i = 0, elements = document.getElementsByTagName("*"), highest = 0; i < elements.length; ++i) {
+                    zIndex = document.defaultView.getComputedStyle(elements[i]).zIndex;
+                    if (zIndex !== "auto") {
+                        highest = Math.max(highest, parseInt(zIndex, 10));
                     }
                 }
-
-                applyStyle(canvas, STYLE_DEFAULTS);
-                canvas.style.verticalAlign = "bottom";
-
-                return canvas;
+                return highest;
             }
 
-            function doubleScale(canvas) {
-                var scaledCanvas, ctx;
-                scaledCanvas = createCanvas(canvas.width * 2, canvas.height * 2);
-                ctx = scaledCanvas.getContext("2d");
-                ctx.webkitImageSmoothingEnabled = false;
-                ctx.drawImage(canvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
-                scaledCanvas.style.width = canvas.width + "px";
-                scaledCanvas.style.height = canvas.height + "px";
-                return scaledCanvas;
-            }
-
-            function error(message) {
-                alert("Error: " + message);
-                document.body.removeChild(divOverlay);
-            }
-
-            function dismiss(evt) {
-                evt.preventDefault();
-                document.body.removeChild(divOverlay);
-            }
-
-            divOverlay = createDiv({"position": "fixed", "left": "0px", "top": "0px", "width": "100%", "height": "100%", "background-color": "rgba(0, 0, 0, 0.8)", "overflow": "scroll", "z-index": (findHighestZIndex() + 1).toString(10), "opacity": "0"});
-            divCanvasContainer = createDiv({"background-color": "black", "box-shadow": "0 8px 32px rgb(0, 0, 0)", "margin": "8px auto", "padding": "16px", "border": "2px solid white", "border-radius": "8px", "top": "100%"});
-
-            divOverlay.appendChild(divCanvasContainer);
-            document.body.appendChild(divOverlay);
-
-            transitionCSS(divOverlay, "opacity", "0.2s", "ease-out", {"opacity": "1.0"});
-
-            setTimeout(function () {
-                var controller;
-                if (baud > 0) {
-                    controller = animateBytes(bytes, function (canvas) {
-                        divCanvasContainer.style.width = canvas.width + "px";
-                        divCanvasContainer.appendChild(processCanvas(canvas));
-                        slideUpContainer();
-                        setTimeout(function () {
-                            controller.play(baud);
-                        }, 750);
-                        divOverlay.onclick = dismiss;
-                    }, options, error);
-                } else {
-                    splitRenderBytes(bytes, function (canvases) {
-                        divCanvasContainer.style.width = canvases[0].width + "px";
-                        canvases.forEach(function (canvas) {
-                            if (retina && browser === CHROME) {
-                                canvas = doubleScale(canvas);
-                            }
-                            divCanvasContainer.appendChild(processCanvas(canvas));
-                        });
-                        slideUpContainer();
-                        divOverlay.onclick = dismiss;
-                    }, 100, options, error);
+            function applyStyle(element, style) {
+                var name;
+                for (name in style) {
+                    if (style.hasOwnProperty(name)) {
+                        element.style.setProperty(name, style[name], "important");
+                    }
                 }
-            }, 250);
-        }
+            }
 
-        return {
-            "show": show
-        };
-    }());
+            function createDiv(style) {
+                var div;
+                style = style || {};
+                div = document.createElement("div");
+                applyStyle(div, STYLE_DEFAULTS);
+                applyStyle(div, style);
+                return div;
+            }
+
+            function transitionCSS(element, transProperty, transDuration, transFunction, style) {
+                element.style.transitionProperty = transProperty;
+                element.style.transitionDuration = transDuration;
+                element.style.transitionTimingFunction = transFunction;
+                if (style) {
+                    setTimeout(function () {
+                        applyStyle(element, style);
+                    }, 50);
+                }
+            }
+
+            function show(bytes, baud, options) {
+                var divOverlay, divCanvasContainer;
+
+                function slideUpContainer() {
+                    transitionCSS(divCanvasContainer, "top", "0.6s", "ease-in-out", {"top": "0"});
+                }
+
+                function processCanvas(canvas) {
+                    if (retina) {
+                        switch (browser) {
+                        case FIREFOX:
+                            canvas.style.imageRendering = "-moz-crisp-edges";
+                            break;
+                        case SAFARI:
+                            canvas.style.imageRendering = "-webkit-optimize-contrast";
+                            break;
+                        }
+                    }
+
+                    applyStyle(canvas, STYLE_DEFAULTS);
+                    canvas.style.verticalAlign = "bottom";
+
+                    return canvas;
+                }
+
+                function doubleScale(canvas) {
+                    var scaledCanvas, ctx;
+                    scaledCanvas = createCanvas(canvas.width * 2, canvas.height * 2);
+                    ctx = scaledCanvas.getContext("2d");
+                    ctx.webkitImageSmoothingEnabled = false;
+                    ctx.drawImage(canvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
+                    scaledCanvas.style.width = canvas.width + "px";
+                    scaledCanvas.style.height = canvas.height + "px";
+                    return scaledCanvas;
+                }
+
+                function error(message) {
+                    alert("Error: " + message);
+                    document.body.removeChild(divOverlay);
+                }
+
+                function dismiss(evt) {
+                    evt.preventDefault();
+                    document.body.removeChild(divOverlay);
+                }
+
+                divOverlay = createDiv({"position": "fixed", "left": "0px", "top": "0px", "width": "100%", "height": "100%", "background-color": "rgba(0, 0, 0, 0.8)", "overflow": "scroll", "z-index": (findHighestZIndex() + 1).toString(10), "opacity": "0"});
+                divCanvasContainer = createDiv({"background-color": "black", "box-shadow": "0 8px 32px rgb(0, 0, 0)", "margin": "8px auto", "padding": "16px", "border": "2px solid white", "border-radius": "8px", "top": "100%"});
+
+                divOverlay.appendChild(divCanvasContainer);
+                document.body.appendChild(divOverlay);
+
+                transitionCSS(divOverlay, "opacity", "0.2s", "ease-out", {"opacity": "1.0"});
+
+                setTimeout(function () {
+                    var controller;
+                    if (baud > 0) {
+                        controller = animateBytes(bytes, function (canvas) {
+                            divCanvasContainer.style.width = canvas.width + "px";
+                            divCanvasContainer.appendChild(processCanvas(canvas));
+                            slideUpContainer();
+                            setTimeout(function () {
+                                controller.play(baud);
+                            }, 750);
+                            divOverlay.onclick = dismiss;
+                        }, options);
+                    } else {
+                        splitRenderBytes(bytes, function (canvases) {
+                            divCanvasContainer.style.width = canvases[0].width + "px";
+                            canvases.forEach(function (canvas) {
+                                if (retina && browser === CHROME) {
+                                    canvas = doubleScale(canvas);
+                                }
+                                divCanvasContainer.appendChild(processCanvas(canvas));
+                            });
+                            slideUpContainer();
+                            divOverlay.onclick = dismiss;
+                        }, 100, options, error);
+                    }
+                }, 250);
+            }
+
+            return {
+                "show": show
+            };
+        }());
+    }
 
     function popupBytes(bytes, options) {
         Popup.show(bytes, 0, options || {});
     }
 
-    function popup(url, options) {
+    function popup(url, options, callbackFail) {
         httpGet(url, function (bytes) {
+            options = options || {};
+            if (!options.filetype) {
+                options.filetype = url.split(".").pop().toLowerCase();
+            }
             popupBytes(bytes, options);
-        });
+        }, callbackFail);
     }
 
     function popupAnimationBytes(bytes, baud, options) {
         Popup.show(bytes, baud || 14400, options || {});
     }
 
-    function popupAnimation(url, baud, options) {
+    function popupAnimation(url, baud, options, callbackFail) {
         httpGet(url, function (bytes) {
             popupAnimationBytes(bytes, baud, options);
-        });
+        }, callbackFail);
     }
 
     return {
