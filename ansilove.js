@@ -2,6 +2,30 @@ var AnsiLove = (function () {
     "use strict";
     var Palette, Font, Popup;
 
+    function httpGet(url, callback, callbackFail) {
+        var http = new XMLHttpRequest();
+        http.open("GET", url, true);
+
+        http.onreadystatechange = function () {
+            if (http.readyState === 4) {
+                switch (http.status) {
+                case 0:
+                case 200:
+                    callback(new Uint8Array(http.response));
+                    break;
+                default:
+                    if (callbackFail) {
+                        callbackFail(http.status);
+                    }
+                }
+            }
+        };
+
+        http.setRequestHeader("Content-Type", "application/octet-stream");
+        http.responseType = "arraybuffer";
+        http.send();
+    }
+
     function File(bytes) {
         var pos, SAUCE_ID, COMNT_ID, commentCount;
 
@@ -123,11 +147,12 @@ var AnsiLove = (function () {
         }
     }
 
-    function createCanvas(width, height) {
-        var canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        return canvas;
+    function sauce(url, callback, callbackFail) {
+        httpGet(url, function (bytes) {
+            var file;
+            file = new File(bytes);
+            callback(file.sauce);
+        }, callbackFail);
     }
 
     Font = (function () {
@@ -377,10 +402,6 @@ var AnsiLove = (function () {
         }
 
         function getFontFromFile(file, width, height, amigaFont) {
-            var fontBitWidth, fontBuffer, fontBuffer24Bit;
-            fontBitWidth = width * height;
-            fontBuffer = [];
-            fontBuffer24Bit = new Uint8Array(width * height * 4);
             return font(bytesToBits(file, width, height), width, height, amigaFont);
         }
 
@@ -500,6 +521,137 @@ var AnsiLove = (function () {
         };
     }());
 
+    function scaleCanvas(sourceData, width, height, chunkWidth, chunkHeight) {
+        var destWidth, destHeight, destData, rgba, pixelRowOffset, chunkSize, i, j, k, x, y, r, g, b, a;
+
+        rgba = new Uint8Array(4);
+
+        destWidth = width / chunkWidth;
+        destHeight = height / chunkHeight;
+        destData = new Uint8Array(destWidth * destHeight * 4);
+
+        pixelRowOffset = (width - chunkWidth) * 4;
+        chunkSize = chunkWidth * chunkHeight;
+
+        for (i = x = y = 0; i < destData.length; i += 4) {
+            for (j = r = g = b = a = 0, k = (y * width * chunkHeight + x * chunkWidth) * 4; j < chunkSize; ++j) {
+                r += sourceData[k++];
+                g += sourceData[k++];
+                b += sourceData[k++];
+                a += sourceData[k++];
+                if ((j + 1) % chunkWidth === 0) {
+                    k += pixelRowOffset;
+                }
+            }
+            rgba[0] = Math.round(r / chunkSize);
+            rgba[1] = Math.round(g / chunkSize);
+            rgba[2] = Math.round(b / chunkSize);
+            rgba[3] = Math.round(a / chunkSize);
+            destData.set(rgba, i);
+            if (++x === destWidth) {
+                x = 0;
+                ++y;
+            }
+        }
+
+        return {
+            "width": destWidth,
+            "height": destHeight,
+            "rgbaData": destData
+        };
+    }
+
+    function display(raw, start, length, altFont, options) {
+        var canvasWidth, canvasHeight, rgbaData, font, end, i, k, l, x, fontBitWidth, fontDisplayWidth, displayFontBitWidth, fontData, rowOffset, screenOffset, fontOffset, chunky;
+
+        font = raw.font || altFont || Font.preset("80x25");
+
+        fontDisplayWidth = (font.width === 9 && (options.bits !== "9" || options.thumbnail)) ? 8 : font.width;
+
+        fontBitWidth = font.width * 4;
+        displayFontBitWidth = fontDisplayWidth * 4;
+
+        end = Math.min(start + length, raw.imageData.length);
+
+        canvasWidth = raw.width * fontDisplayWidth;
+        canvasHeight = (end - start) / raw.rowLength * font.height;
+
+        rgbaData = new Uint8Array(canvasWidth * canvasHeight * 4);
+        rowOffset = canvasWidth * 4;
+
+        if (raw.palette) {
+            for (i = start, screenOffset = 0, x = 0; i < end; i += 2, screenOffset += displayFontBitWidth) {
+                fontData = font.getData(raw.imageData[i], raw.palette, raw.imageData[i + 1] & 15, raw.imageData[i + 1] >> 4);
+                for (fontOffset = screenOffset, k = l = 0; k < font.height; ++k, fontOffset += rowOffset, l += fontBitWidth) {
+                    rgbaData.set(fontData.subarray(l, l + displayFontBitWidth), fontOffset);
+                }
+                if (++x % raw.width === 0) {
+                    screenOffset += (font.height - 1) * rowOffset;
+                }
+            }
+        } else {
+            for (i = start, screenOffset = 0, x = 0; i < end; i += 9, screenOffset += displayFontBitWidth) {
+                fontData = font.get24BitData(raw.imageData[i], raw.imageData.subarray(i + 1, i + 5), raw.imageData.subarray(i + 5, i + 9));
+                for (fontOffset = screenOffset, k = l = 0; k < font.height; ++k, fontOffset += rowOffset, l += fontBitWidth) {
+                    rgbaData.set(fontData.subarray(l, l + displayFontBitWidth), fontOffset);
+                }
+                if (++x % raw.width === 0) {
+                    screenOffset += (font.height - 1) * rowOffset;
+                }
+            }
+        }
+
+        if (options.thumbnail) {
+            chunky = Math.pow(2, 4 - options.thumbnail);
+            return scaleCanvas(rgbaData, canvasWidth, canvasHeight, chunky, chunky);
+        }
+
+        return {
+            "width": canvasWidth,
+            "height": canvasHeight,
+            "rgbaData": rgbaData
+        };
+    }
+
+    function createCanvas(width, height) {
+        var canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        return canvas;
+    }
+
+    function displayDataToCanvas(displayData) {
+        var canvas, ctx, imageData;
+        canvas = createCanvas(displayData.width, displayData.height);
+        ctx = canvas.getContext("2d");
+        imageData = ctx.createImageData(canvas.width, canvas.height);
+        imageData.data.set(displayData.rgbaData, 0);
+        ctx.putImageData(imageData, 0, 0);
+        return canvas;
+    }
+
+    function adf(bytes) {
+        var file, palette, font, imageData;
+
+        file = new File(bytes);
+
+        file.getC();
+
+        palette = Palette.adf(file);
+        font = Font.font8x16x256(file);
+        imageData = file.read();
+
+        return {
+            "font": font,
+            "height": imageData.length / 2 / 80,
+            "imageData": imageData,
+            "palette": palette,
+            "width": 80,
+            "rowLength": 80 * 2,
+            "sauce": file.sauce
+        };
+    }
+
     function ScreenData(width) {
         var imageData, maxY, pos;
 
@@ -552,463 +704,6 @@ var AnsiLove = (function () {
         };
 
         this.rowLength = width * 2;
-    }
-
-    function ScreenData24(width) {
-        var imageData, maxY, pos;
-
-        imageData = new Uint8Array(width * 27 * 9);
-        maxY = 0;
-        pos = 0;
-
-        function extendImageData(y) {
-            var newImageData;
-            newImageData = new Uint8Array(width * (y + 27) * 9 + imageData.length);
-            newImageData.set(imageData, 0);
-            imageData = newImageData;
-        }
-
-        this.set = function (x, y, charCode, fg, bg) {
-            pos = (y * width + x) * 9;
-            if (pos >= imageData.length) {
-                extendImageData(y);
-            }
-            imageData[pos] = charCode;
-            imageData.set(fg, pos + 1);
-            imageData.set(bg, pos + 5);
-            if (y > maxY) {
-                maxY = y;
-            }
-        };
-
-        this.getData = function () {
-            var subarray, i;
-            for (subarray = imageData.subarray(0, width * (maxY + 1) * 9), i = 0; i < subarray.length; i += 9) {
-                subarray[i + 4] = 255;
-                subarray[i + 8] = 255;
-            }
-            return subarray;
-        };
-
-        this.getHeight = function () {
-            return maxY + 1;
-        };
-
-        this.rowLength = width * 9;
-    }
-
-    function scaleCanvas(sourceData, width, height, chunkWidth, chunkHeight) {
-        var destWidth, destHeight, destData, rgba, pixelRowOffset, chunkSize, i, j, k, x, y, r, g, b, a;
-
-        rgba = new Uint8Array(4);
-
-        destWidth = width / chunkWidth;
-        destHeight = height / chunkHeight;
-        destData = new Uint8Array(destWidth * destHeight * 4);
-
-        pixelRowOffset = (width - chunkWidth) * 4;
-        chunkSize = chunkWidth * chunkHeight;
-
-        for (i = x = y = 0; i < destData.length; i += 4) {
-            for (j = r = g = b = a = 0, k = (y * width * chunkHeight + x * chunkWidth) * 4; j < chunkSize; ++j) {
-                r += sourceData[k++];
-                g += sourceData[k++];
-                b += sourceData[k++];
-                a += sourceData[k++];
-                if ((j + 1) % chunkWidth === 0) {
-                    k += pixelRowOffset;
-                }
-            }
-            rgba[0] = Math.round(r / chunkSize);
-            rgba[1] = Math.round(g / chunkSize);
-            rgba[2] = Math.round(b / chunkSize);
-            rgba[3] = Math.round(a / chunkSize);
-            destData.set(rgba, i);
-            if (++x === destWidth) {
-                x = 0;
-                ++y;
-            }
-        }
-
-        return {
-            "width": destWidth,
-            "height": destHeight,
-            "rgbaData": destData
-        };
-    }
-
-    function display(raw, start, length, altFont, options) {
-        var canvasWidth, canvasHeight, rgbaData, font, end, i, j, k, l, x, fontBitWidth, fontDisplayWidth, displayFontBitWidth, fontData, rowOffset, screenOffset, fontOffset, chunky;
-
-        font = raw.font || altFont || Font.preset("80x25");
-
-        fontDisplayWidth = (font.width === 9 && (options.bits !== "9" || options.thumbnail)) ? 8 : font.width;
-
-        fontBitWidth = font.width * 4;
-        displayFontBitWidth = fontDisplayWidth * 4;
-
-        end = Math.min(start + length, raw.imageData.length);
-
-        canvasWidth = raw.width * fontDisplayWidth;
-        canvasHeight = (end - start) / raw.rowLength * font.height;
-
-        rgbaData = new Uint8Array(canvasWidth * canvasHeight * 4);
-        rowOffset = canvasWidth * 4;
-
-        if (raw.palette) {
-            for (i = start, screenOffset = 0, j = x = 0; i < end; i += 2, screenOffset += displayFontBitWidth) {
-                fontData = font.getData(raw.imageData[i], raw.palette, raw.imageData[i + 1] & 15, raw.imageData[i + 1] >> 4);
-                for (fontOffset = screenOffset, k = l = 0; k < font.height; ++k, fontOffset += rowOffset, l += fontBitWidth) {
-                    rgbaData.set(fontData.subarray(l, l + displayFontBitWidth), fontOffset);
-                }
-                if (++x % raw.width === 0) {
-                    screenOffset += (font.height - 1) * rowOffset;
-                }
-            }
-        } else {
-            for (i = start, screenOffset = 0, j = x = 0; i < end; i += 9, screenOffset += displayFontBitWidth) {
-                fontData = font.get24BitData(raw.imageData[i], raw.imageData.subarray(i + 1, i + 5), raw.imageData.subarray(i + 5, i + 9));
-                for (fontOffset = screenOffset, k = l = 0; k < font.height; ++k, fontOffset += rowOffset, l += fontBitWidth) {
-                    rgbaData.set(fontData.subarray(l, l + displayFontBitWidth), fontOffset);
-                }
-                if (++x % raw.width === 0) {
-                    screenOffset += (font.height - 1) * rowOffset;
-                }
-            }
-        }
-
-        if (options.thumbnail) {
-            chunky = Math.pow(2, 4 - options.thumbnail);
-            return scaleCanvas(rgbaData, canvasWidth, canvasHeight, chunky, chunky);
-        }
-
-        return {
-            "width": canvasWidth,
-            "height": canvasHeight,
-            "rgbaData": rgbaData
-        };
-    }
-
-    function xb(bytes) {
-        var file, header, palette, font, imageData;
-
-        function XBinHeader(file) {
-            var flags;
-
-            if (file.getS(4) !== "XBIN") {
-                throw "File ID does not match.";
-            }
-
-            if (file.get() !== 26) {
-                throw "File ID does not match.";
-            }
-
-            this.width = file.get16();
-            this.height = file.get16();
-
-            this.fontHeight = file.get();
-
-            if (this.fontHeight === 0 || this.fontHeight > 32) {
-                throw "Illegal value for the font height (" + this.fontHeight + ").";
-            }
-
-            flags = file.get();
-
-            this.palette = ((flags & 1) === 1);
-            this.font = ((flags & 2) === 2);
-
-            if (this.fontHeight !== 16 && !this.font) {
-                throw "A non-standard font size was defined, but no font information was included with the file.";
-            }
-
-            this.compressed = ((flags & 4) === 4);
-            this.nonBlink = ((flags & 8) === 8);
-            this.char512 = ((flags & 16) === 16);
-        }
-
-        function uncompress(file, width, height) {
-            var uncompressed, p, i, j, repeatAttr, repeatChar, count;
-            uncompressed = new Uint8Array(width * height * 2);
-            i = 0;
-            while (i < uncompressed.length) {
-                p = file.get();
-                count = p & 63;
-                switch (p >> 6) {
-                case 1:
-                    for (repeatChar = file.get(), j = 0; j <= count; ++j) {
-                        uncompressed[i++] = repeatChar;
-                        uncompressed[i++] = file.get();
-                    }
-                    break;
-                case 2:
-                    for (repeatAttr = file.get(), j = 0; j <= count; ++j) {
-                        uncompressed[i++] = file.get();
-                        uncompressed[i++] = repeatAttr;
-                    }
-                    break;
-                case 3:
-                    for (repeatChar = file.get(), repeatAttr = file.get(), j = 0; j <= count; ++j) {
-                        uncompressed[i++] = repeatChar;
-                        uncompressed[i++] = repeatAttr;
-                    }
-                    break;
-                default:
-                    for (j = 0; j <= count; ++j) {
-                        uncompressed[i++] = file.get();
-                        uncompressed[i++] = file.get();
-                    }
-                }
-            }
-            return uncompressed;
-        }
-
-        file = new File(bytes);
-        header = new XBinHeader(file);
-
-        palette = header.palette ? Palette.triplets16(file) : Palette.BIN;
-        font = header.font ? Font.xbin(file, header.fontHeight) : Font.preset("80x25");
-        imageData = header.compressed ? uncompress(file, header.width, header.height) : file.read(header.width * header.height * 2);
-
-        return {
-            "font": font,
-            "height": header.height,
-            "imageData": imageData,
-            "palette": palette,
-            "width": header.width,
-            "rowLength": header.width * 2,
-            "sauce": file.sauce
-        };
-    }
-
-    function bin(bytes, options) {
-        var file, imageData, i;
-
-        file = new File(bytes);
-        imageData = file.read(file.size);
-        if (!options.icecolors) {
-            for (i = 1; i < imageData.length; i += 2) {
-                imageData[i] = imageData[i] & 127;
-            }
-        }
-
-        return {
-            "height": Math.round(imageData.length / 2 / options.columns),
-            "imageData": imageData,
-            "palette": Palette.BIN,
-            "width": options.columns,
-            "rowLength": options.columns * 2,
-            "sauce": file.sauce
-        };
-    }
-
-    function adf(bytes) {
-        var file, palette, font, imageData;
-
-        file = new File(bytes);
-
-        file.getC();
-
-        palette = Palette.adf(file);
-        font = Font.font8x16x256(file);
-        imageData = file.read();
-
-        return {
-            "font": font,
-            "height": imageData.length / 2 / 80,
-            "imageData": imageData,
-            "palette": palette,
-            "width": 80,
-            "rowLength": 80 * 2,
-            "sauce": file.sauce
-        };
-    }
-
-    function tnd(bytes) {
-        var file, x, y, imageData, charCode, fg, bg;
-
-        function get32(file) {
-            var v;
-            v = file.get() << 24;
-            v += file.get() << 16;
-            v += file.get() << 8;
-            return v + file.get();
-        }
-
-        file = new File(bytes);
-
-        if (file.get() !== 24) {
-            throw "File ID does not match.";
-        }
-        if (file.getS(8) !== "TUNDRA24") {
-            throw "File ID does not match.";
-        }
-
-        fg = new Uint8Array(3);
-        bg = new Uint8Array(3);
-        x = y = 0;
-
-        imageData = new ScreenData24(80);
-
-        while (!file.eof()) {
-            if (x === 80) {
-                x = 0;
-                ++y;
-            }
-            charCode = file.get();
-            if (charCode === 1) {
-                y = get32(file);
-                x = get32(file);
-            }
-            if (charCode === 2) {
-                charCode = file.get();
-                file.get();
-                fg.set(file.read(3), 0);
-            }
-            if (charCode === 4) {
-                charCode = file.get();
-                file.get();
-                bg.set(file.read(3), 0);
-            }
-            if (charCode === 6) {
-                charCode = file.get();
-                file.get();
-                fg.set(file.read(3), 0);
-                file.get();
-                bg.set(file.read(3), 0);
-            }
-            if (charCode !== 1 && charCode !== 2 && charCode !== 4 && charCode !== 6) {
-                imageData.set(x, y, charCode, fg, bg);
-                ++x;
-            }
-        }
-
-        return {
-            "height": imageData.getHeight(),
-            "imageData": imageData.getData(),
-            "palette": undefined,
-            "width": 80,
-            "rowLength": imageData.rowLength,
-            "sauce": file.sauce
-        };
-    }
-
-    function idf(bytes) {
-        var file, width, palette, font, imageData, c, loop, ch, attr;
-
-        file = new File(bytes);
-
-        file.seek(8);
-
-        width = file.get16() + 1;
-
-        imageData = new ScreenData(width);
-
-        file.seek(12);
-
-        while (file.getPos() < file.size - 4144) {
-            c = file.get16();
-            if (c === 1) {
-                loop = file.get();
-                file.get();
-                ch = file.get();
-                attr = file.get();
-                while (loop-- > 0) {
-                    imageData.push(ch, attr);
-                }
-            } else {
-                imageData.push(c & 255, c >> 8);
-            }
-        }
-
-        font = Font.font8x16x256(file);
-
-        palette = Palette.triplets16(file);
-
-        return {
-            "font": font,
-            "height": imageData.getHeight(),
-            "imageData": imageData.getData(),
-            "palette": palette,
-            "width": width,
-            "rowLength": imageData.rowLength,
-            "sauce": file.sauce
-        };
-    }
-
-    function pcb(bytes, options) {
-        var file, loop, charCode, bg, fg, x, y, imageData;
-
-        file = new File(bytes);
-
-        imageData = new ScreenData(80);
-
-        bg = 0;
-        fg = 7;
-        loop = x = y = 0;
-
-        function printChar() {
-            imageData.set(x, y, charCode, fg + (bg << 4));
-            if (++x === 80) {
-                y++;
-                x = 0;
-            }
-        }
-
-        while (loop < file.size) {
-            charCode = bytes[loop];
-
-            if (charCode === 26) {
-                break;
-            }
-
-            switch (charCode) {
-            case 13:
-                break;
-            case 10:
-                y++;
-                x = 0;
-                break;
-            case 9:
-                x += 8;
-                break;
-            case 64:
-                if (bytes[loop + 1] === 88) {
-                    bg = bytes[loop + 2] - ((bytes[loop + 2] >= 65) ? 55 : 48);
-                    if (!options.icecolors && bg > 7) {
-                        bg -= 8;
-                    }
-                    fg = bytes[loop + 3] - ((bytes[loop + 3] >= 65) ? 55 : 48);
-                    loop += 3;
-                } else if (bytes[loop + 1] === 67 && bytes[loop + 2] === 76 && bytes[loop + 3] === 83) {
-                    x = y = 0;
-                    imageData.reset();
-                    loop += 4;
-                } else if (bytes[loop + 1] === 80 && bytes[loop + 2] === 79 && bytes[loop + 3] === 83 && bytes[loop + 4] === 58) {
-                    if (bytes[loop + 6] === 64) {
-                        x = ((bytes[loop + 5]) - 48) - 1;
-                        loop += 5;
-                    } else {
-                        x = (10 * ((bytes[loop + 5]) - 48) + (bytes[loop + 6]) - 48) - 1;
-                        loop += 6;
-                    }
-                } else {
-                    printChar();
-                }
-                break;
-            default:
-                printChar();
-            }
-            loop++;
-        }
-
-        return {
-            "height": imageData.getHeight(),
-            "imageData": imageData.getData(),
-            "palette": Palette.BIN,
-            "width": 80,
-            "rowLength": imageData.rowLength,
-            "sauce": file.sauce
-        };
     }
 
     function ans(bytes, options) {
@@ -1246,28 +941,347 @@ var AnsiLove = (function () {
         };
     }
 
-    function httpGet(url, callback, callbackFail) {
-        var http = new XMLHttpRequest();
-        http.open("GET", url, true);
+    function bin(bytes, options) {
+        var file, imageData, i;
 
-        http.onreadystatechange = function () {
-            if (http.readyState === 4) {
-                switch (http.status) {
-                case 0:
-                case 200:
-                    callback(new Uint8Array(http.response));
-                    break;
-                default:
-                    if (callbackFail) {
-                        callbackFail(http.status);
-                    }
+        file = new File(bytes);
+        imageData = file.read(file.size);
+        if (!options.icecolors) {
+            for (i = 1; i < imageData.length; i += 2) {
+                imageData[i] = imageData[i] & 127;
+            }
+        }
+
+        return {
+            "height": Math.round(imageData.length / 2 / options.columns),
+            "imageData": imageData,
+            "palette": Palette.BIN,
+            "width": options.columns,
+            "rowLength": options.columns * 2,
+            "sauce": file.sauce
+        };
+    }
+
+    function idf(bytes) {
+        var file, width, palette, font, imageData, c, loop, ch, attr;
+
+        file = new File(bytes);
+
+        file.seek(8);
+
+        width = file.get16() + 1;
+
+        imageData = new ScreenData(width);
+
+        file.seek(12);
+
+        while (file.getPos() < file.size - 4144) {
+            c = file.get16();
+            if (c === 1) {
+                loop = file.get();
+                file.get();
+                ch = file.get();
+                attr = file.get();
+                while (loop-- > 0) {
+                    imageData.push(ch, attr);
                 }
+            } else {
+                imageData.push(c & 255, c >> 8);
+            }
+        }
+
+        font = Font.font8x16x256(file);
+
+        palette = Palette.triplets16(file);
+
+        return {
+            "font": font,
+            "height": imageData.getHeight(),
+            "imageData": imageData.getData(),
+            "palette": palette,
+            "width": width,
+            "rowLength": imageData.rowLength,
+            "sauce": file.sauce
+        };
+    }
+
+    function pcb(bytes, options) {
+        var file, loop, charCode, bg, fg, x, y, imageData;
+
+        file = new File(bytes);
+
+        imageData = new ScreenData(80);
+
+        bg = 0;
+        fg = 7;
+        loop = x = y = 0;
+
+        function printChar() {
+            imageData.set(x, y, charCode, fg + (bg << 4));
+            if (++x === 80) {
+                y++;
+                x = 0;
+            }
+        }
+
+        while (loop < file.size) {
+            charCode = bytes[loop];
+
+            if (charCode === 26) {
+                break;
+            }
+
+            switch (charCode) {
+            case 13:
+                break;
+            case 10:
+                y++;
+                x = 0;
+                break;
+            case 9:
+                x += 8;
+                break;
+            case 64:
+                if (bytes[loop + 1] === 88) {
+                    bg = bytes[loop + 2] - ((bytes[loop + 2] >= 65) ? 55 : 48);
+                    if (!options.icecolors && bg > 7) {
+                        bg -= 8;
+                    }
+                    fg = bytes[loop + 3] - ((bytes[loop + 3] >= 65) ? 55 : 48);
+                    loop += 3;
+                } else if (bytes[loop + 1] === 67 && bytes[loop + 2] === 76 && bytes[loop + 3] === 83) {
+                    x = y = 0;
+                    imageData.reset();
+                    loop += 4;
+                } else if (bytes[loop + 1] === 80 && bytes[loop + 2] === 79 && bytes[loop + 3] === 83 && bytes[loop + 4] === 58) {
+                    if (bytes[loop + 6] === 64) {
+                        x = ((bytes[loop + 5]) - 48) - 1;
+                        loop += 5;
+                    } else {
+                        x = (10 * ((bytes[loop + 5]) - 48) + (bytes[loop + 6]) - 48) - 1;
+                        loop += 6;
+                    }
+                } else {
+                    printChar();
+                }
+                break;
+            default:
+                printChar();
+            }
+            loop++;
+        }
+
+        return {
+            "height": imageData.getHeight(),
+            "imageData": imageData.getData(),
+            "palette": Palette.BIN,
+            "width": 80,
+            "rowLength": imageData.rowLength,
+            "sauce": file.sauce
+        };
+    }
+
+    function ScreenData24(width) {
+        var imageData, maxY, pos;
+
+        imageData = new Uint8Array(width * 27 * 9);
+        maxY = 0;
+        pos = 0;
+
+        function extendImageData(y) {
+            var newImageData;
+            newImageData = new Uint8Array(width * (y + 27) * 9 + imageData.length);
+            newImageData.set(imageData, 0);
+            imageData = newImageData;
+        }
+
+        this.set = function (x, y, charCode, fg, bg) {
+            pos = (y * width + x) * 9;
+            if (pos >= imageData.length) {
+                extendImageData(y);
+            }
+            imageData[pos] = charCode;
+            imageData.set(fg, pos + 1);
+            imageData.set(bg, pos + 5);
+            if (y > maxY) {
+                maxY = y;
             }
         };
 
-        http.setRequestHeader("Content-Type", "application/octet-stream");
-        http.responseType = "arraybuffer";
-        http.send();
+        this.getData = function () {
+            var subarray, i;
+            for (subarray = imageData.subarray(0, width * (maxY + 1) * 9), i = 0; i < subarray.length; i += 9) {
+                subarray[i + 4] = 255;
+                subarray[i + 8] = 255;
+            }
+            return subarray;
+        };
+
+        this.getHeight = function () {
+            return maxY + 1;
+        };
+
+        this.rowLength = width * 9;
+    }
+
+    function tnd(bytes) {
+        var file, x, y, imageData, charCode, fg, bg;
+
+        function get32(file) {
+            var v;
+            v = file.get() << 24;
+            v += file.get() << 16;
+            v += file.get() << 8;
+            return v + file.get();
+        }
+
+        file = new File(bytes);
+
+        if (file.get() !== 24) {
+            throw "File ID does not match.";
+        }
+        if (file.getS(8) !== "TUNDRA24") {
+            throw "File ID does not match.";
+        }
+
+        fg = new Uint8Array(3);
+        bg = new Uint8Array(3);
+        x = y = 0;
+
+        imageData = new ScreenData24(80);
+
+        while (!file.eof()) {
+            if (x === 80) {
+                x = 0;
+                ++y;
+            }
+            charCode = file.get();
+            if (charCode === 1) {
+                y = get32(file);
+                x = get32(file);
+            }
+            if (charCode === 2) {
+                charCode = file.get();
+                file.get();
+                fg.set(file.read(3), 0);
+            }
+            if (charCode === 4) {
+                charCode = file.get();
+                file.get();
+                bg.set(file.read(3), 0);
+            }
+            if (charCode === 6) {
+                charCode = file.get();
+                file.get();
+                fg.set(file.read(3), 0);
+                file.get();
+                bg.set(file.read(3), 0);
+            }
+            if (charCode !== 1 && charCode !== 2 && charCode !== 4 && charCode !== 6) {
+                imageData.set(x, y, charCode, fg, bg);
+                ++x;
+            }
+        }
+
+        return {
+            "height": imageData.getHeight(),
+            "imageData": imageData.getData(),
+            "palette": undefined,
+            "width": 80,
+            "rowLength": imageData.rowLength,
+            "sauce": file.sauce
+        };
+    }
+
+    function xb(bytes) {
+        var file, header, palette, font, imageData;
+
+        function XBinHeader(file) {
+            var flags;
+
+            if (file.getS(4) !== "XBIN") {
+                throw "File ID does not match.";
+            }
+
+            if (file.get() !== 26) {
+                throw "File ID does not match.";
+            }
+
+            this.width = file.get16();
+            this.height = file.get16();
+
+            this.fontHeight = file.get();
+
+            if (this.fontHeight === 0 || this.fontHeight > 32) {
+                throw "Illegal value for the font height (" + this.fontHeight + ").";
+            }
+
+            flags = file.get();
+
+            this.palette = ((flags & 1) === 1);
+            this.font = ((flags & 2) === 2);
+
+            if (this.fontHeight !== 16 && !this.font) {
+                throw "A non-standard font size was defined, but no font information was included with the file.";
+            }
+
+            this.compressed = ((flags & 4) === 4);
+            this.nonBlink = ((flags & 8) === 8);
+            this.char512 = ((flags & 16) === 16);
+        }
+
+        function uncompress(file, width, height) {
+            var uncompressed, p, i, j, repeatAttr, repeatChar, count;
+            uncompressed = new Uint8Array(width * height * 2);
+            i = 0;
+            while (i < uncompressed.length) {
+                p = file.get();
+                count = p & 63;
+                switch (p >> 6) {
+                case 1:
+                    for (repeatChar = file.get(), j = 0; j <= count; ++j) {
+                        uncompressed[i++] = repeatChar;
+                        uncompressed[i++] = file.get();
+                    }
+                    break;
+                case 2:
+                    for (repeatAttr = file.get(), j = 0; j <= count; ++j) {
+                        uncompressed[i++] = file.get();
+                        uncompressed[i++] = repeatAttr;
+                    }
+                    break;
+                case 3:
+                    for (repeatChar = file.get(), repeatAttr = file.get(), j = 0; j <= count; ++j) {
+                        uncompressed[i++] = repeatChar;
+                        uncompressed[i++] = repeatAttr;
+                    }
+                    break;
+                default:
+                    for (j = 0; j <= count; ++j) {
+                        uncompressed[i++] = file.get();
+                        uncompressed[i++] = file.get();
+                    }
+                }
+            }
+            return uncompressed;
+        }
+
+        file = new File(bytes);
+        header = new XBinHeader(file);
+
+        palette = header.palette ? Palette.triplets16(file) : Palette.BIN;
+        font = header.font ? Font.xbin(file, header.fontHeight) : Font.preset("80x25");
+        imageData = header.compressed ? uncompress(file, header.width, header.height) : file.read(header.width * header.height * 2);
+
+        return {
+            "font": font,
+            "height": header.height,
+            "imageData": imageData,
+            "palette": palette,
+            "width": header.width,
+            "rowLength": header.width * 2,
+            "sauce": file.sauce
+        };
     }
 
     function trimColumns(data) {
@@ -1287,16 +1301,6 @@ var AnsiLove = (function () {
         data.width = maxX + 1;
         data.rowLength = data.width * 2;
         return data;
-    }
-
-    function displayDataToCanvas(displayData) {
-        var canvas, ctx, imageData;
-        canvas = createCanvas(displayData.width, displayData.height);
-        ctx = canvas.getContext("2d");
-        imageData = ctx.createImageData(canvas.width, canvas.height);
-        imageData.data.set(displayData.rgbaData, 0);
-        ctx.putImageData(imageData, 0, 0);
-        return canvas;
     }
 
     function readBytes(bytes, callback, splitRows, options) {
@@ -1375,11 +1379,47 @@ var AnsiLove = (function () {
         }
     }
 
-    function sauce(url, callback, callbackFail) {
+    function renderBytes(bytes, callback, options, callbackFail) {
+        try {
+            readBytes(bytes, callback, 0, options || {});
+        } catch (e) {
+            if (callbackFail) {
+                callbackFail(e);
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    function render(url, callback, options, callbackFail) {
         httpGet(url, function (bytes) {
-            var file;
-            file = new File(bytes);
-            callback(file.sauce);
+            options = options || {};
+            if (!options.filetype) {
+                options.filetype = url.split(".").pop().toLowerCase();
+            }
+            renderBytes(bytes, callback, options, callbackFail);
+        }, callbackFail);
+    }
+
+    function splitRenderBytes(bytes, callback, splitRows, options, callbackFail) {
+        try {
+            readBytes(bytes, callback, splitRows || 27, options || {});
+        } catch (e) {
+            if (callbackFail) {
+                callbackFail(e);
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    function splitRender(url, callback, splitRows, options, callbackFail) {
+        httpGet(url, function (bytes) {
+            options = options || {};
+            if (!options.filetype) {
+                options.filetype = url.split(".").pop().toLowerCase();
+            }
+            splitRenderBytes(bytes, callback, splitRows, options, callbackFail);
         }, callbackFail);
     }
 
@@ -1701,50 +1741,6 @@ var AnsiLove = (function () {
         };
     }
 
-    function renderBytes(bytes, callback, options, callbackFail) {
-        try {
-            readBytes(bytes, callback, 0, options || {});
-        } catch (e) {
-            if (callbackFail) {
-                callbackFail(e);
-            } else {
-                throw e;
-            }
-        }
-    }
-
-    function render(url, callback, options, callbackFail) {
-        httpGet(url, function (bytes) {
-            options = options || {};
-            if (!options.filetype) {
-                options.filetype = url.split(".").pop().toLowerCase();
-            }
-            renderBytes(bytes, callback, options, callbackFail);
-        }, callbackFail);
-    }
-
-    function splitRenderBytes(bytes, callback, splitRows, options, callbackFail) {
-        try {
-            readBytes(bytes, callback, splitRows || 27, options || {});
-        } catch (e) {
-            if (callbackFail) {
-                callbackFail(e);
-            } else {
-                throw e;
-            }
-        }
-    }
-
-    function splitRender(url, callback, splitRows, options, callbackFail) {
-        httpGet(url, function (bytes) {
-            options = options || {};
-            if (!options.filetype) {
-                options.filetype = url.split(".").pop().toLowerCase();
-            }
-            splitRenderBytes(bytes, callback, splitRows, options, callbackFail);
-        }, callbackFail);
-    }
-
     function animateBytes(bytes, callback, options) {
         var ansimation;
         ansimation = new Ansimation(bytes, options || {});
@@ -1950,18 +1946,18 @@ var AnsiLove = (function () {
     }
 
     return {
-        "render": render,
-        "splitRender": splitRender,
-        "renderBytes": renderBytes,
-        "splitRenderBytes": splitRenderBytes,
-        "animate": animate,
-        "animateBytes": animateBytes,
-        "popup": popup,
-        "popupBytes": popupBytes,
-        "popupAnimation": popupAnimation,
-        "popupAnimationBytes": popupAnimationBytes,
+        "sauce": sauce,
         "displayDataToCanvas": displayDataToCanvas,
-        "sauce": sauce
+        "renderBytes": renderBytes,
+        "render": render,
+        "splitRenderBytes": splitRenderBytes,
+        "splitRender": splitRender,
+        "animateBytes": animateBytes,
+        "animate": animate,
+        "popupBytes": popupBytes,
+        "popup": popup,
+        "popupAnimationBytes": popupAnimationBytes,
+        "popupAnimation": popupAnimation
     };
 }());
 
