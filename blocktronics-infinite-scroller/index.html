@@ -25,6 +25,7 @@
         overflow: hidden;
     }
     #ansi {
+        width: 640px;
         margin: 0 auto;
     }
     #ansi canvas {
@@ -40,12 +41,6 @@
 <script type="text/javascript">
 (function init() {
     "use strict";
-    var iDevice, ansiDiv;
-    iDevice = (navigator.userAgent.match(/(iPhone|iPad|iPod)/i) !== null);
-    ansiDiv = document.getElementById("ansi");
-
-    ansiDiv.style.width = iDevice ? "640px" : "1280px";
-
     function httpGetList(url, callback, callbackFail) {
         var http;
         http = new XMLHttpRequest();
@@ -58,7 +53,6 @@
                     callback(http.response.split("\n").filter(function (text) { return text !== ""; }));
                     break;
                 default:
-                    console.log(callbackFail);
                     if (callbackFail) {
                         callbackFail(http.status);
                     } else {
@@ -80,11 +74,7 @@
             }
 
             controller = AnsiLove.animate(randomAns(), function (canvas) {
-                if (!iDevice) {
-                    canvas.style.width = (canvas.width * 2) + "px";
-                    canvas.style.height = (canvas.height * 2) + "px";
-                }
-                ansiDiv.appendChild(canvas);
+                document.getElementById("ansi").appendChild(canvas);
                 (function start() {
                     controller.play(14400, function () {
                         (function reload() {
@@ -94,7 +84,7 @@
                         }());
                     }, false);
                 }());
-            }, {"2J": 0, "rows": Math.ceil(window.innerHeight / (iDevice ? 16 : 32))}, function () {
+            }, {"2J": 0, "rows": Math.ceil(window.innerHeight / 16)}, function () {
                 setTimeout(loadAns, 3000);
             });
         }());
