@@ -6,7 +6,7 @@ body {
 
 .box {
     margin: 16px auto;
-    width: 736px;
+    width: 760px;
 }
 
 p {
@@ -133,16 +133,11 @@ label {
 }
 
 .tube-link {
-    width: 160px;
-    height: 130px;
-    margin: 5px;
-    padding: 6px;
-    border: 1px solid #444;
-    background-color: black;
+    width: 180px;
+    margin: 4px;
+    border: 1px solid #555;
     float: left;
-    background-repeat: no-repeat;
-    background-position: 6px 6px;
-    border-radius: 10px;
+    border-radius: 8px;
 }
 
 .tube-link:hover {
@@ -150,13 +145,11 @@ label {
 }
 
 .tube-link p {
-    position: relative;
+    margin: 6px;
     font-size: 10px;
-    left: 0px;
-    top: 100px;
     color: #999;
 }
 
-.tube-link:hover p.title {
+.tube-link:hover p {
     text-decoration: underline;
 }

@@ -23,7 +23,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             }
         };
-        http.setRequestHeader("Content-Type", "application/octet-stream");
         http.responseType = "text";
         http.send();
     }
@@ -67,15 +66,27 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     httpGetJson("tubes.json", function (tubes) {
-        var i, divTubeLinks, paragraph;
+        var i, divTubeLinks, divPreview, paragraph, retina;
         i = 0;
         divTubeLinks = document.getElementsByClassName("tube-link");
+        retina = window.devicePixelRatio > 1;
         (function next() {
             if (i < tubes.length) {
-                divTubeLinks[i].style.backgroundImage = "url(" + tubes[i].thumb + ")";
+                divPreview = document.createElement("div");
+                if (retina) {
+                    divPreview.style.backgroundImage = "url(" + tubes[i].thumb + "@2x.png)";
+                    divPreview.style.backgroundSize = "160px 104px";
+                } else {
+                    divPreview.style.backgroundImage = "url(" + tubes[i].thumb + ".png)";
+                }
+                divPreview.style.backgroundRepeat = "no-repeat";
+                divPreview.style.width = "160px";
+                divPreview.style.height = "104px";
+                divPreview.style.margin = "10px";
                 paragraph = document.createElement("p");
-                paragraph.textContent = tubes[i].url.split("/").pop() + ", " + tubes[i].author;
+                divTubeLinks[i].appendChild(divPreview);
                 divTubeLinks[i].appendChild(paragraph);
+                paragraph.innerText = tubes[i].url.split("/").pop() + "\nby " + tubes[i].author;
                 divTubeLinks[i].onclick = playTube(tubes[i].url, tubes[i].baudrate, tubes[i].settings);
                 ++i;
                 next();
