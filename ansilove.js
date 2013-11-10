@@ -2230,7 +2230,7 @@ var AnsiLove = (function () {
                     var scaledCanvas, ctx;
                     scaledCanvas = createCanvas(canvas.width * 2, canvas.height * 2);
                     ctx = scaledCanvas.getContext("2d");
-                    ctx.webkitImageSmoothingEnabled = false;
+                    ctx.imageSmoothingEnabled = false;
                     ctx.drawImage(canvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
                     scaledCanvas.style.width = canvas.width + "px";
                     scaledCanvas.style.height = canvas.height + "px";
