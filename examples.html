@@ -5,7 +5,7 @@ layout: default
 <script type="text/javascript" charset="utf-8">
 (function () {
     "use strict";
-    var ANS, i;
+    var ANS, i, retinaOnChrome;
     ANS = [
         { "url": "ans/ns-bp09.ans", "bits": "9", "font": "80x25", "text": "Example ANSi (Drawn by Ansichrist, April 2009)" },
         { "url": "ans/we-alove.ans", "bits": "9", "font": "80x25", "text": "Example ANSi (Drawn by Enzo and Cleaner, August 2013)" },
@@ -19,7 +19,22 @@ layout: default
         { "url": "ans/no-alove.ans", "bits": "9", "font": "80x25", "text": "Example ANSi (Drawn by Noches, August 2013)" },
         { "url": "ans/us-alov.ans", "bits": "9", "font": "80x25", "text": "Example ANSi (Drawn by Noches and Avenging Angel, January 2007)" }
     ];
+    retinaOnChrome = window.devicePixelRatio > 1 && navigator.userAgent.indexOf("Chrome") !== -1;
     i = 0;
+
+    function doubleScale(canvas) {
+        var scaledCanvas, ctx;
+        scaledCanvas = document.createElement("canvas");
+        scaledCanvas.width = canvas.width * 2;
+        scaledCanvas.height = canvas.height * 2;
+        ctx = scaledCanvas.getContext("2d");
+        ctx.webkitImageSmoothingEnabled = false;
+        ctx.drawImage(canvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
+        scaledCanvas.style.width = canvas.width + "px";
+        scaledCanvas.style.height = canvas.height + "px";
+        return scaledCanvas;
+    }
+
     (function next() {
         function doNext() {
             if (++i < ANS.length) {
@@ -29,15 +44,16 @@ layout: default
         AnsiLove.render(ANS[i].url, function (canvas) {
             var container, h1;
             container = document.createElement("div");
-            container.style.width = (canvas.width + 2) + "px";
+            container.style.width = "720px";
             container.style.padding = "16px";
-            container.style.border = "4px solid #fff";
+            container.style.border = "2px solid white";
+            container.style.borderRadius = "8px";
             container.style.margin = "64px auto";
             container.style.body = "1px solid #999";
             h1 = document.createElement("h3");
             h1.textContent = ANS[i].text;
             container.appendChild(h1);
-            container.appendChild(canvas);
+            container.appendChild(retinaOnChrome ? doubleScale(canvas) : canvas);
             document.body.appendChild(container);
             doNext();
         }, { "bits": ANS[i].bits, "font": ANS[i].font }, doNext);
