@@ -2200,6 +2200,9 @@ var AnsiLove = (function () {
                         applyStyle(divOverlay, {"background-image": "none"});
                     }
                     transitionCSS(divCanvasContainer, "top", "0.6s", "ease-in-out", {"top": "0"});
+                    setTimeout(function () {
+                        applyStyle(divOverlay, {"overflow": "auto"});
+                    }, 750);
                 }
 
                 // Applies styles to a <canvas> element, depending on which <browser> is detected. Makes sure each <canvas> element is displayed vertically without a gap, by setting vertical-align: bottom. "image-rendering" is set to prevent image smoothing on retina type displays.
@@ -2247,7 +2250,7 @@ var AnsiLove = (function () {
                 }
 
                 // Create the overlay element with various css styles.
-                divOverlay = createDiv({"position": "fixed", "left": "0px", "top": "0px", "width": "100%", "height": "100%", "background-color": "rgba(0, 0, 0, 0.8)", "overflow": "scroll", "z-index": (findHighestZIndex() + 1).toString(10), "opacity": "0"});
+                divOverlay = createDiv({"position": "fixed", "left": "0px", "top": "0px", "width": "100%", "height": "100%", "background-color": "rgba(0, 0, 0, 0.8)", "overflow": "hidden", "z-index": (findHighestZIndex() + 1).toString(10), "opacity": "0"});
                 // If a spinner url is provided in <options>, add it to the backdrop of the overlay element...
                 if (options.spinner) {
                     applyStyle(divOverlay, {"background-image": "url(" + options.spinner + ")", "background-position": "center center", "background-repeat": "no-repeat"});
