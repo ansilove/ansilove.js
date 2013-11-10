@@ -1,9 +1,10 @@
 var AnsiLove = (function () {
     "use strict";
-    var Palette, Font, Popup;
-
+    var Palette, Font, Parser, Popup;
+    // Fetches a file located at <url>, returned as a Uint8Array. <callback> is called upon success, returning the array, <callbackFail> is called, if specified, if the operation was unsucessful with the http code.
     function httpGet(url, callback, callbackFail) {
         var http = new XMLHttpRequest();
+
         http.open("GET", url, true);
 
         http.onreadystatechange = function () {
@@ -21,17 +22,20 @@ var AnsiLove = (function () {
             }
         };
 
-        http.setRequestHeader("Content-Type", "application/octet-stream");
         http.responseType = "arraybuffer";
         http.send();
     }
 
+    // This function returns an object that emulates basic file-handling when fed an array of bytes.
     function File(bytes) {
+        // pos points to the current position in the 'file'. SAUCE_ID, COMNT_ID, and commentCount are used later when parsing the SAUCE record.
         var pos, SAUCE_ID, COMNT_ID, commentCount;
 
+        // Raw Bytes for "SAUCE" and "COMNT", used when parsing SAUCE records.
         SAUCE_ID = new Uint8Array([0x53, 0x41, 0x55, 0x43, 0x45]);
         COMNT_ID = new Uint8Array([0x43, 0x4F, 0x4D, 0x4E, 0x54]);
 
+        // Returns an 8-bit byte at the current byte position, <pos>. Also advances <pos> by a single byte. Throws an error if we advance beyond the length of the array.
         this.get = function () {
             if (pos >= bytes.length) {
                 throw "Unexpected end of file reached.";
@@ -39,12 +43,14 @@ var AnsiLove = (function () {
             return bytes[pos++];
         };
 
+        // Same as get(), but returns a 16-bit byte. Also advances <pos> by two (8-bit) bytes.
         this.get16 = function () {
             var v;
             v = this.get();
             return v + (this.get() << 8);
         };
 
+        // Same as get(), but returns a 32-bit byte. Also advances <pos> by four (8-bit) bytes.
         this.get32 = function () {
             var v;
             v = this.get();
@@ -53,10 +59,12 @@ var AnsiLove = (function () {
             return v + (this.get() << 24);
         };
 
+        // Exactly the same as get(), but returns a character symbol, instead of the value. e.g. 65 = "A".
         this.getC = function () {
             return String.fromCharCode(this.get());
         };
 
+        // Returns a string of <num> characters at the current file position, and strips the trailing whitespace characters. Advances <pos> by <num> by calling getC().
         this.getS = function (num) {
             var string;
             string = "";
@@ -66,6 +74,7 @@ var AnsiLove = (function () {
             return string.replace(/\s+$/, '');
         };
 
+        // Returns "true" if, at the current <pos>, a string of characters matches <match>. Does not increment <pos>.
         this.lookahead = function (match) {
             var i;
             for (i = 0; i < match.length; ++i) {
@@ -76,9 +85,11 @@ var AnsiLove = (function () {
             return i === match.length;
         };
 
+        // Returns an array of <num> bytes found at the current <pos>. Also increments <pos>.
         this.read = function (num) {
             var t;
             t = pos;
+            // If num is undefined, return all the bytes until the end of file.
             num = num || this.size - pos;
             while (++pos < this.size) {
                 if (--num === 0) {
@@ -88,76 +99,101 @@ var AnsiLove = (function () {
             return bytes.subarray(t, pos);
         };
 
+        // Sets a new value for <pos>. Equivalent to seeking a file to a new position.
         this.seek = function (newPos) {
             pos = newPos;
         };
 
+        // Returns the value found at <pos>, without incrementing <pos>.
         this.peek = function (num) {
             num = num || 0;
             return bytes[pos + num];
         };
 
+        // Returns the the current position being read in the file, in amount of bytes. i.e. <pos>.
         this.getPos = function () {
             return pos;
         };
 
+        // Returns true if the end of file has been reached. <this.size> is set later by the SAUCE parsing section, as it is not always the same value as the length of <bytes>. (In case there is a SAUCE record, and optional comments).
         this.eof = function () {
             return pos === this.size;
         };
 
+        // Seek to the position we would expect to find a SAUCE record.
         pos = bytes.length - 128;
+        // If we find "SAUCE".
         if (this.lookahead(SAUCE_ID)) {
             this.sauce = {};
+            // Read "SAUCE".
             this.getS(5);
-            this.sauce.version = this.getS(2);
-            this.sauce.title = this.getS(35);
-            this.sauce.author = this.getS(20);
-            this.sauce.group = this.getS(20);
-            this.sauce.date = this.getS(8);
-            this.sauce.fileSize = this.get32();
-            this.sauce.dataType = this.get();
-            this.sauce.fileType = this.get();
-            this.sauce.tInfo1 = this.get16();
-            this.sauce.tInfo2 = this.get16();
-            this.sauce.tInfo3 = this.get16();
-            this.sauce.tInfo4 = this.get16();
+            // Read and store the various SAUCE values.
+            this.sauce.version = this.getS(2); // String, maximum of 2 characters
+            this.sauce.title = this.getS(35); // String, maximum of 35 characters
+            this.sauce.author = this.getS(20); // String, maximum of 20 characters
+            this.sauce.group = this.getS(20); // String, maximum of 20 characters
+            this.sauce.date = this.getS(8); // String, maximum of 8 characters
+            this.sauce.fileSize = this.get32(); // unsigned 32-bit
+            this.sauce.dataType = this.get(); // unsigned 8-bit
+            this.sauce.fileType = this.get(); // unsigned 8-bit
+            this.sauce.tInfo1 = this.get16(); // unsigned 16-bit
+            this.sauce.tInfo2 = this.get16(); // unsigned 16-bit
+            this.sauce.tInfo3 = this.get16(); // unsigned 16-bit
+            this.sauce.tInfo4 = this.get16(); // unsigned 16-bit
+            // Initialize the comments array.
             this.sauce.comments = [];
-            commentCount = this.get();
-            this.sauce.flags = this.get();
+            commentCount = this.get(); // unsigned 8-bit
+            this.sauce.flags = this.get(); // unsigned 8-bit
             if (commentCount > 0) {
+                // If we have a value for the comments amount, seek to the position we'd expect to find them...
                 pos = bytes.length - 128 - (commentCount * 64) - 5;
+                // ... and check that we find a COMNT header.
                 if (this.lookahead(COMNT_ID)) {
+                    // Read COMNT ...
                     this.getS(5);
+                    // ... and push everything we find after that into our <this.sauce.comments> array, in 64-byte chunks, stripping the trailing whitespace in the getS() function.
                     while (commentCount-- > 0) {
                         this.sauce.comments.push(this.getS(64));
                     }
                 }
             }
         }
+        // Seek back to the start of the file, ready for reading.
         pos = 0;
 
         if (this.sauce) {
+            // If we have found a SAUCE record, and the fileSize field passes some basic sanity checks...
             if (this.sauce.fileSize > 0 && this.sauce.fileSize < bytes.length) {
+                // Set <this.size> to the value set in SAUCE.
                 this.size = this.sauce.fileSize;
             } else {
+                // If it fails the sanity checks, just assume that SAUCE record can't be trusted, and set <this.size> to the position where the SAUCE record begins.
                 this.size = bytes.length - 128;
             }
         } else {
+            // If there is no SAUCE record, assume that everything in <bytes> relates to an image.
             this.size = bytes.length;
         }
     }
 
+    // Returns a sauce record i.e. File.sauce to <callback> asynchronously, for an array of <bytes>.
+    function sauceBytes(bytes) {
+        return new File(bytes).sauce;
+    }
+
+    // Returns a sauce record i.e. File.sauce to <callback> asynchronously, for the file found at <url>. <callbackFail> is called if unsuccesful.
     function sauce(url, callback, callbackFail) {
         httpGet(url, function (bytes) {
-            var file;
-            file = new File(bytes);
-            callback(file.sauce);
+            callback(sauceBytes(bytes));
         }, callbackFail);
     }
 
+    // Font collects together the functions for reading, rendering, and drawing the glyphs used on a canvas element.
     Font = (function () {
+        // FONT_PRESETS stores all the predefined font characters, BASE64_CHARS is used when decoding the predefined data (in base64 format), and fontBitsBuffer is a buffer which is leveraged whenever a font is re-used to save a few cpu cycles.
         var FONT_PRESETS, BASE64_CHARS, fontBitsBuffer;
 
+        // This object describes all the predefined font data, <width> and <height> are in pixels, <data> is a base64-encoded byte array, containing a 1-bit image for all 256 characters in sequence. <amigaFont> is referenced when rendering to make sure the font is one pixel wider.
         FONT_PRESETS = {
             "b-strict": {
                 "width": 8,
@@ -339,21 +375,30 @@ var AnsiLove = (function () {
 
         fontBitsBuffer = {};
 
+        // Returns properties that describe a font's size, and functions which return RGBA arrays, which are to be inserted in an entire RGBA image. Accepts <bits> an array of boolean values which describe a 1-bit image of a font, all 256 characters, as well as the <width> and <height> of each glyph, and a boolean, <amigaFont>, which if set to true is used when drawing a glyph in bold type.
         function font(bits, width, height, amigaFont) {
+            // <fontBitWidth> is the size of each glyph, in amount of bits, <fontBuffer> is used to buffer RGBA images of each glyph. <fontBuffer24Bit> is used on a case-by-case basis when rendering a glyph in the get24BitData() function.
             var fontBitWidth, fontBuffer, fontBuffer24Bit;
             fontBitWidth = width * height;
             fontBuffer = [];
-            fontBuffer24Bit = new Uint8Array(width * height * 4);
+            // RGBA data, requires Red, Green, Blue, and Alpha values for each 'bit' in the 1-bit image data, <bits>.
+            fontBuffer24Bit = new Uint8Array(fontBitWidth * 4);
 
+            // Accepts a character code <charCode>, e.g. 65 = A, with an array of RGBA values, <palette>, and a foreground, <fg>, and background, <bg>, value which points at an element in the array.
             function getData(charCode, palette, fg, bg) {
                 var i, j, k, bufferIndex;
+                // For each value of <charCode>, and <fg>, and <bg>, create a unique reference for our buffered array, <fontBuffer>.
                 bufferIndex = charCode + (fg << 8) + (bg << 12);
+                // If we haven't already drawn this glyph before...
                 if (!fontBuffer[bufferIndex]) {
+                    // ... create a new one.
                     fontBuffer[bufferIndex] = new Uint8Array(width * height * 4);
+                    // Works through each bit in <bits> at the point where our <charCode> starts, and copy <fg> where the bit is set, and <bg> where it is not.
                     for (i = 0, j = charCode * fontBitWidth, k = 0; i < fontBitWidth; ++i, ++j, k += 4) {
                         if (bits[j]) {
                             fontBuffer[bufferIndex].set(palette[fg], k);
                         } else {
+                            // In case that this is an <amigaFont>, and the foreground colour <fg> is set to bold type, i.e. 8 to 15, make sure we 'double-width' the glyph.
                             if (amigaFont && (fg > 7) && (i > 0) && bits[j - 1]) {
                                 fontBuffer[bufferIndex].set(palette[fg], k);
                             } else {
@@ -362,25 +407,24 @@ var AnsiLove = (function () {
                         }
                     }
                 }
+                // Return the buffered RGBA image.
                 return fontBuffer[bufferIndex];
             }
 
+            // Same as getData(), but accepts only a <fg> (foreground) and <bg> (background) arrays as RGBA data. Returns, as with getData(), raw RGBA data which describes the glyph's image.
             function get24BitData(charCode, fg, bg) {
                 var i, j, k;
                 for (i = 0, j = charCode * fontBitWidth, k = 0; i < fontBitWidth; ++i, ++j, k += 4) {
                     if (bits[j]) {
                         fontBuffer24Bit.set(fg, k);
                     } else {
-                        if (amigaFont && (fg > 7) && (i > 0) && bits[j - 1]) {
-                            fontBuffer24Bit.set(fg, k);
-                        } else {
-                            fontBuffer24Bit.set(bg, k);
-                        }
+                        fontBuffer24Bit.set(bg, k);
                     }
                 }
                 return fontBuffer24Bit;
             }
 
+            // Entrypoint for each of the functions publicly available in Font.
             return {
                 "getData": getData,
                 "get24BitData": get24BitData,
@@ -389,22 +433,22 @@ var AnsiLove = (function () {
             };
         }
 
+        // Converts a stream of bytes returned by a File object, <file>, into a boolean array, <bits>, which represent the 1-bit image data of all the glyphs. The number of bytes to be read are calculated by the <width> and <height> specified for each glyph.
         function bytesToBits(file, width, height) {
             var bits, i, j, k, v;
+            // Build the <bits> array, for all 256 glyphs.
             bits = new Uint8Array(width * height * 256);
             for (i = width * height * 256 / 8, k = 0; i > 0; --i) {
                 v = file.get();
                 for (j = 7; j >= 0; --j) {
+                    // returns true or false if the bit is set for each bit in every byte read.
                     bits[k++] = !!((v >> j) & 1);
                 }
             }
             return bits;
         }
 
-        function getFontFromFile(file, width, height, amigaFont) {
-            return font(bytesToBits(file, width, height), width, height, amigaFont);
-        }
-
+        // Converts a string of <text> in Base64 characters to a File object. This is probably much slower than calling window.atob(), but atob() cannot be invoked by a Web Worker instance. Truncating the array based on padding characters is not implemented, but is not necessary for this script. <bytes16> is used on the assumption that keeping the bit-shifting limited to typed-arrays is faster that dynamic types.
         function base64ToFile(text) {
             var i, j, bytes16, bytes8;
             bytes16 = new Uint32Array(1);
@@ -421,7 +465,9 @@ var AnsiLove = (function () {
             return new File(bytes8);
         }
 
+        // Returns a font object returned by <font> based on the data held in FONT_PRESETS using the key <name>. When the preset is called initially, the 1-bit image data returned by bytesToBits() is buffered in <fontBitsBuffer>, referenced by the key <name>, which may save some cpu cycles when the function is called again. Assumes <name> absolutely exists in FONT_PRESETS, and any error checking is handled by calling has() previously.
         function preset(name) {
+            // Aliases for various keys, used to preserve compatibility with url schemes.
             switch (name) {
             case "amiga":
                 name = "topaz";
@@ -436,20 +482,26 @@ var AnsiLove = (function () {
                 name = "topaz500+";
                 break;
             }
+            // If we haven't already converted this data to a boolean array...
             if (!fontBitsBuffer[name]) {
+                // ... build and store it.
                 fontBitsBuffer[name] = bytesToBits(base64ToFile(FONT_PRESETS[name].data), FONT_PRESETS[name].width, FONT_PRESETS[name].height);
             }
+            // Return our font object based on the buffered array by calling font() with all the data held in FONT_PRESETS.
             return font(fontBitsBuffer[name], FONT_PRESETS[name].width, FONT_PRESETS[name].height, FONT_PRESETS[name].amigaFont);
         }
 
+        // Returns a font object by reading <file>, assuming a predefined glyph height, <fontHeight>. This is a predefined function to handle font data held in xbin files.
         function xbin(file, fontHeight) {
-            return getFontFromFile(file, 8, fontHeight, false);
+            return font(bytesToBits(file, 8, fontHeight), 8, fontHeight, false);
         }
 
+        // A generic function, leveraged by various parsers to read font data of a standard 8x16 size, to be read from <file>, and returns a font object.
         function font8x16x256(file) {
-            return getFontFromFile(file, 8, 16, false);
+            return font(bytesToBits(file, 8, 16), 8, 16, false);
         }
 
+        // A simple function, which returns true or false depending on whether <name> is a key name in FONT_PRESETS, so that a call to preset will return valid data.
         function has(name) {
             switch (name) {
             case "amiga":
@@ -462,6 +514,7 @@ var AnsiLove = (function () {
             }
         }
 
+        // Entrypoint for publicly-available functions.
         return {
             "preset": preset,
             "xbin": xbin,
@@ -470,9 +523,12 @@ var AnsiLove = (function () {
         };
     }());
 
+    // Collects together several functions and variables which hold palette data.
     Palette = (function () {
+        // Variables, which should be treated as constants for use when rendering .asc, .ans, .bin files, as well as when setting "bits" to "ced", and "workbench". All are defined as native arrays of RGBA data, held as Uint8Array arrays. e.g. [[0, 0, 0, 255], [255, 255, 255,255] ...]
         var ASC_PC, ANSI, BIN, CED, WORKBENCH;
 
+        // Converts a 6-bit <value>, representing a colour in the EGA palette, to its RGBA equivalent (as a Uint8Array).
         function egaRGB(value) {
             return new Uint8Array([
                 (((value & 32) >> 5) + ((value & 4) >> 1)) * 0x55,
@@ -482,12 +538,14 @@ var AnsiLove = (function () {
             ]);
         }
 
+        // Define the various preset palettes. Since the Workbench palette does not have equivalent EGA values, RGBA values are defined directly.
         ASC_PC = [0, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7].map(egaRGB);
         ANSI = [0, 4, 2, 20, 1, 5, 3, 7, 56, 60, 58, 62, 57, 61, 59, 63].map(egaRGB);
         BIN = [0, 1, 2, 3, 4, 5, 20, 7, 56, 57, 58, 59, 60, 61, 62, 63].map(egaRGB);
         CED = [7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].map(egaRGB);
-        WORKBENCH = [[170, 170, 170, 255], [170, 170, 170, 255], [0, 0, 0, 255], [0, 0, 0, 255], [255, 255, 255, 255], [255, 255, 255, 255], [102, 136, 187, 255], [102, 136, 187, 255], [0, 0, 255, 255], [0, 0, 255, 255], [255, 0, 255, 255], [255, 0, 255, 255], [0, 255, 255, 255], [0, 255, 255, 255], [255, 255, 255, 255], [255, 255, 255, 255]];
+        WORKBENCH = [new Uint8Array([170, 170, 170, 255]), new Uint8Array([170, 170, 170, 255]), new Uint8Array([0, 0, 0, 255]), new Uint8Array([0, 0, 0, 255]), new Uint8Array([255, 255, 255, 255]), new Uint8Array([255, 255, 255, 255]), new Uint8Array([102, 136, 187, 255]), new Uint8Array([102, 136, 187, 255]), new Uint8Array([0, 0, 255, 255]), new Uint8Array([0, 0, 255, 255]), new Uint8Array([255, 0, 255, 255]), new Uint8Array([255, 0, 255, 255]), new Uint8Array([0, 255, 255, 255]), new Uint8Array([0, 255, 255, 255]), new Uint8Array([255, 255, 255, 255]), new Uint8Array([255, 255, 255, 255])];
 
+        // Reads palette information from <file>, assuming it is held as RGB data, and has 16 members. Returns a native array of RGBA data, held as Uint8Array arrays.
         function triplets16(file) {
             var pal, i, r, g, b;
             for (pal = [], i = 0; i < 16; ++i) {
@@ -499,6 +557,7 @@ var AnsiLove = (function () {
             return pal;
         }
 
+        // A very specific function to interpret palette information held by adf files. Information on all 64 colours is read from <file>, and then only colours from specific places in that array are used in the image. Returns RGBA data in the same format returned by triplets16().
         function adf(file) {
             var pal, i, r, g, b;
             for (pal = [], i = 0; i < 64; ++i) {
@@ -510,6 +569,7 @@ var AnsiLove = (function () {
             return [pal[0], pal[1], pal[2], pal[3], pal[4], pal[5], pal[20], pal[7], pal[56], pal[57], pal[58], pal[59], pal[60], pal[61], pal[62], pal[63]];
         }
 
+        // Entrypoint for the various public methods.
         return {
             "ASC_PC": ASC_PC,
             "ANSI": ANSI,
@@ -521,32 +581,41 @@ var AnsiLove = (function () {
         };
     }());
 
+    // Scales the RGBA image data, <sourcedata>, by averaging each "chunk" of a certain size, <chunkWidth> and <chunkHeight>. <width> and <height> describe the size of the source image.
     function scaleCanvas(sourceData, width, height, chunkWidth, chunkHeight) {
         var destWidth, destHeight, destData, rgba, pixelRowOffset, chunkSize, i, j, k, x, y, r, g, b, a;
 
+        // Temporary var for storing the value of the averaged "chunk".
         rgba = new Uint8Array(4);
 
+        // Define the size of the destination image...
         destWidth = width / chunkWidth;
         destHeight = height / chunkHeight;
+        // ... and create an 8-bit array for its RGBA data.
         destData = new Uint8Array(destWidth * destHeight * 4);
 
+        // Pre-calculations used when building the destination data.
         pixelRowOffset = (width - chunkWidth) * 4;
         chunkSize = chunkWidth * chunkHeight;
 
         for (i = x = y = 0; i < destData.length; i += 4) {
             for (j = r = g = b = a = 0, k = (y * width * chunkHeight + x * chunkWidth) * 4; j < chunkSize; ++j) {
+                // Add all the values in each "chunk" for red, green, blue, and alpha bytes.
                 r += sourceData[k++];
                 g += sourceData[k++];
                 b += sourceData[k++];
                 a += sourceData[k++];
+                // Seek the next row of pixels in each "chunk".
                 if ((j + 1) % chunkWidth === 0) {
                     k += pixelRowOffset;
                 }
             }
+            // Average out the values for each pixel in the destination image.
             rgba[0] = Math.round(r / chunkSize);
             rgba[1] = Math.round(g / chunkSize);
             rgba[2] = Math.round(b / chunkSize);
             rgba[3] = Math.round(a / chunkSize);
+            // Write our averaged pixel.
             destData.set(rgba, i);
             if (++x === destWidth) {
                 x = 0;
@@ -554,6 +623,7 @@ var AnsiLove = (function () {
             }
         }
 
+        // Returns the <width> and <height> of the destination image, as well as its RGBA data, <rgbaData>.
         return {
             "width": destWidth,
             "height": destHeight,
@@ -561,26 +631,35 @@ var AnsiLove = (function () {
         };
     }
 
+    // Receives a <raw> object returned from the image-parsing functions found in Parser, and outputs a Uint8Array with RGBA data, <rgbaData>, with dimensions <width> and <height>. <start> and <length> point to offsets in <raw.imageData>, so that only part of the image can be rendered. <altFont> is a font object, returned by font() to be used when rendering the image (assuming no font information is held in raw.font), and <options>, which are passed by the user.
     function display(raw, start, length, altFont, options) {
         var canvasWidth, canvasHeight, rgbaData, font, end, i, k, l, x, fontBitWidth, fontDisplayWidth, displayFontBitWidth, fontData, rowOffset, screenOffset, fontOffset, chunky;
 
-        font = raw.font || altFont || Font.preset("80x25");
+        // Either use the font data returned by the parser, and if that isn't available, the font data passed by readBytes(), which will be either the font paramater passed by the user, or the default 80x25.
+        font = raw.font || altFont;
 
+        // If we're using a font with a ninth-bit, and the 9-bit option is set, store the <fontDisplayWidth> as 9, otherwise use the font's default value (or 8 for 9-bit fonts).
         fontDisplayWidth = (font.width === 9 && (options.bits !== "9" || options.thumbnail)) ? 8 : font.width;
 
+        // Temporary variables to pre-calculate some data.
         fontBitWidth = font.width * 4;
         displayFontBitWidth = fontDisplayWidth * 4;
 
+        // Define where to stop reading data.
         end = Math.min(start + length, raw.imageData.length);
 
+        // Calculate the dimensions of the output image.
         canvasWidth = raw.width * fontDisplayWidth;
         canvasHeight = (end - start) / raw.rowLength * font.height;
 
+        // Initialize the RGBA image data and calculate how many bytes are in each text-row.
         rgbaData = new Uint8Array(canvasWidth * canvasHeight * 4);
         rowOffset = canvasWidth * 4;
 
+        // If the image has palette data...
         if (raw.palette) {
             for (i = start, screenOffset = 0, x = 0; i < end; i += 2, screenOffset += displayFontBitWidth) {
+                // ... retrieve the font image data by calling getData() in Font, and inserting the Uint8Array data at the required position in the RGBA data.
                 fontData = font.getData(raw.imageData[i], raw.palette, raw.imageData[i + 1] & 15, raw.imageData[i + 1] >> 4);
                 for (fontOffset = screenOffset, k = l = 0; k < font.height; ++k, fontOffset += rowOffset, l += fontBitWidth) {
                     rgbaData.set(fontData.subarray(l, l + displayFontBitWidth), fontOffset);
@@ -590,7 +669,9 @@ var AnsiLove = (function () {
                 }
             }
         } else {
+            // If the image stores 24-bit data...
             for (i = start, screenOffset = 0, x = 0; i < end; i += 9, screenOffset += displayFontBitWidth) {
+                // ... retrieve the font image data by calling get24BitData() in Font, and inserting the Uint8Array data at the required position in the RGBA data.
                 fontData = font.get24BitData(raw.imageData[i], raw.imageData.subarray(i + 1, i + 5), raw.imageData.subarray(i + 5, i + 9));
                 for (fontOffset = screenOffset, k = l = 0; k < font.height; ++k, fontOffset += rowOffset, l += fontBitWidth) {
                     rgbaData.set(fontData.subarray(l, l + displayFontBitWidth), fontOffset);
@@ -601,11 +682,14 @@ var AnsiLove = (function () {
             }
         }
 
+        // Finally, if the "thumbnail" option is chosen...
         if (options.thumbnail) {
+            // ... calculate the scale factor and return the reduced image data.
             chunky = Math.pow(2, 4 - options.thumbnail);
             return scaleCanvas(rgbaData, canvasWidth, canvasHeight, chunky, chunky);
         }
 
+        // Return the imageData, as a Uint8Array RGBA array, <rgbaData>, with image dimensions, <width> and <height>.
         return {
             "width": canvasWidth,
             "height": canvasHeight,
@@ -613,6 +697,7 @@ var AnsiLove = (function () {
         };
     }
 
+    // A simple function to return a CANVAS element, at the defined <width> and <height>.
     function createCanvas(width, height) {
         var canvas = document.createElement("canvas");
         canvas.width = width;
@@ -620,6 +705,7 @@ var AnsiLove = (function () {
         return canvas;
     }
 
+    // Converts data returned by display() as a canvas element, can also be called externally after the results of a Web Worker has been returned (as creating a canvas element is not possible in a Worker thread).
     function displayDataToCanvas(displayData) {
         var canvas, ctx, imageData;
         canvas = createCanvas(displayData.width, displayData.height);
@@ -630,807 +716,1012 @@ var AnsiLove = (function () {
         return canvas;
     }
 
-    function adf(bytes) {
-        var file, palette, font, imageData;
+    // Collects all the functions which parse the supported image formats, with a single entrypoint, readBytes.
+    Parser = (function () {
+        // ScreenData() returns a representation of the screen with <width> columns. This is used for images with a predefined palette. i.e. all formats except Tundra.
+        function ScreenData(width) {
+            // <imageData> represents a Uint8Array of the screen, two pairs of bytes represent the character code and colour attributes in the second, as also used in the .bin file format. <maxY> stores the highest row number written to, and <pos> is the current cursor position represented in the <imageData> array.
+            var imageData, maxY, pos;
 
-        file = new File(bytes);
+            // Returns the ScreenData object to its initial start, used upon initialization or when a screen-clear code is issued.
+            this.reset = function () {
+                imageData = new Uint8Array(width * 1000 * 2);
+                maxY = 0;
+                pos = 0;
+            };
 
-        file.getC();
+            this.reset();
 
-        palette = Palette.adf(file);
-        font = Font.font8x16x256(file);
-        imageData = file.read();
+            // Extend the <imageData> array if necessary, by creating a new array with an additional 1000 rows after from the <y> position currently attempting to be written to, and copy the existing data to the start.
+            function extendImageData(y) {
+                var newImageData;
+                newImageData = new Uint8Array(width * (y + 1000) * 2 + imageData.length);
+                newImageData.set(imageData, 0);
+                imageData = newImageData;
+            }
 
-        return {
-            "font": font,
-            "height": imageData.length / 2 / 80,
-            "imageData": imageData,
-            "palette": palette,
-            "width": 80,
-            "rowLength": 80 * 2,
-            "sauce": file.sauce
-        };
-    }
+            // Set the character code, <charCode>, and foreground & background attribute, <attrib>, and the <x> and <y> position of the <imageData> array.
+            this.set = function (x, y, charCode, attrib) {
+                pos = (y * width + x) * 2;
+                // If we see that we will be writing past the end of the array, extend the array by calling extendImageData() with the current <y> position we want to write to.
+                if (pos >= imageData.length) {
+                    extendImageData(y);
+                }
+                // Store the data...
+                imageData[pos] = charCode;
+                imageData[pos + 1] = attrib;
+                // ... and update <maxY> if it's the largest <y> value used so far.
+                if (y > maxY) {
+                    maxY = y;
+                }
+            };
 
-    function ScreenData(width) {
-        var imageData, maxY, pos;
+            // Set the character code, <charCode>, and foreground & background atrtribute, <attrib>, after the last position which was written to.
+            this.push = function (charCode, attrib) {
+                var y;
+                // Calculate the current <y> position where the character will be inserted.
+                y = Math.ceil(pos / width / 2);
+                // Extend the <imageData> array the limits of the array have been reached.
+                if (pos === imageData.length) {
+                    extendImageData(y);
+                }
+                // Store the data...
+                imageData[pos++] = charCode;
+                imageData[pos++] = attrib;
+                // ... and update <maxY> if it's the largest <y> value used so far.
+                if (y > maxY) {
+                    maxY = y;
+                }
+            };
 
-        this.reset = function () {
-            imageData = new Uint8Array(width * 1000 * 2);
+            // Return the <imageData> array, but only up to the <maxY> row.
+            this.getData = function () {
+                return imageData.subarray(0, width * (maxY + 1) * 2);
+            };
+
+            // Return the amount of rows written to the <imageData> array.
+            this.getHeight = function () {
+                return maxY + 1;
+            };
+
+            // Return the length of each row in the <imageData> array, in bytes.
+            this.rowLength = width * 2;
+        }
+
+        // A 24-bit version of the ScreenData() object, which represents a character code, a single bytes, then foreground and background data as eight 8-bit bytes (RGBA data), for each glyph on-screen. Used only for the Tundra file format.
+        function ScreenData24(width) {
+            // <imageData> represents a Uint8Array of the screen, one byte for the character code, then two sets of RGBA data for foreground and background. <maxY> stores the highest row number written to, and <pos> is the current cursor position represented in the <imageData> array.
+            var imageData, maxY, pos;
+
+            imageData = new Uint8Array(width * 27 * 9);
             maxY = 0;
             pos = 0;
-        };
 
-        this.reset();
+            // Extend the <imageData> array if necessary, by creating a new array with an additional 1000 rows after from the <y> position currently attempting to be written to, and copy the existing data to the start.
+            function extendImageData(y) {
+                var newImageData;
+                newImageData = new Uint8Array(width * (y + 27) * 9 + imageData.length);
+                newImageData.set(imageData, 0);
+                imageData = newImageData;
+            }
 
-        function extendImageData(y) {
-            var newImageData;
-            newImageData = new Uint8Array(width * (y + 1000) * 2 + imageData.length);
-            newImageData.set(imageData, 0);
-            imageData = newImageData;
+            // Set the character code, <charCode> at the <x> and <y> position of the <imageData> array, with the RGBA data defined in fg and bg.
+            this.set = function (x, y, charCode, fg, bg) {
+                pos = (y * width + x) * 9;
+                // If we see that we will be writing past the end of the array, extend the array by calling extendImageData() with the current <y> position we want to write to.
+                if (pos >= imageData.length) {
+                    extendImageData(y);
+                }
+                // Store the data...
+                imageData[pos] = charCode;
+                imageData.set(fg, pos + 1);
+                imageData.set(bg, pos + 5);
+                // ... and update <maxY> if it's the largest <y> value used so far.
+                if (y > maxY) {
+                    maxY = y;
+                }
+            };
+
+            // Return the <imageData> array, but only up to the <maxY> row.
+            this.getData = function () {
+                var subarray, i;
+                // Before returning the truncated array, set the Alpha byte for every character position to the maximum value, otherwise the whole image will be transparent when later copying into a RGBA.
+                for (subarray = imageData.subarray(0, width * (maxY + 1) * 9), i = 0; i < subarray.length; i += 9) {
+                    subarray[i + 4] = 255;
+                    subarray[i + 8] = 255;
+                }
+                return subarray;
+            };
+
+            // Return the amount of rows written to the <imageData> array.
+            this.getHeight = function () {
+                return maxY + 1;
+            };
+
+            // Return the length of each row in the <imageData> array, in bytes.
+            this.rowLength = width * 9;
         }
 
-        this.set = function (x, y, charCode, attrib) {
-            pos = (y * width + x) * 2;
-            if (pos >= imageData.length) {
-                extendImageData(y);
-            }
-            imageData[pos] = charCode;
-            imageData[pos + 1] = attrib;
-            if (y > maxY) {
-                maxY = y;
-            }
-        };
+        // A function to parse a sequence of bytes representing an Artworx file format.
+        function adf(bytes) {
+            var file, palette, font, imageData;
 
-        this.push = function (charCode, attrib) {
-            var y;
-            imageData[pos++] = charCode;
-            imageData[pos++] = attrib;
-            y = Math.ceil(pos / width / 2);
-            if (pos === imageData.length) {
-                extendImageData(y);
-            }
-            if (y > maxY) {
-                maxY = y;
-            }
-        };
+            // Turn bytes into a File object.
+            file = new File(bytes);
 
-        this.getData = function () {
-            return imageData.subarray(0, width * (maxY + 1) * 2);
-        };
+            // Read version number.
+            file.getC();
 
-        this.getHeight = function () {
-            return maxY + 1;
-        };
+            // Read Palette. See Palette.adf().
+            palette = Palette.adf(file);
+            // Read Font. See Font.font8x16x256().
+            font = Font.font8x16x256(file);
+            // Raw Imagedata.
+            imageData = file.read();
 
-        this.rowLength = width * 2;
-    }
-
-    function ans(bytes, options) {
-        var file, escaped, escapeCode, j, code, values, columns, imageData, topOfScreen, x, y, savedX, savedY, foreground, background, bold, blink, inverse, palette;
-
-        file = new File(bytes);
-
-        function resetAttributes() {
-            foreground = 7;
-            background = 0;
-            bold = false;
-            blink = false;
-            inverse = false;
+            // Return an object readable by display() for constructing an RGBA image.
+            return {
+                "font": font,
+                "height": imageData.length / 2 / 80,
+                "imageData": imageData,
+                "palette": palette,
+                "width": 80,
+                "rowLength": 80 * 2, // Length of each row for the image, in bytes.
+                "sauce": file.sauce // sauce record.
+            };
         }
-        resetAttributes();
 
-        function newLine() {
+        // A function to parse a sequence of bytes representing an ANSI file format.
+        function ans(bytes, options) {
+            var file, escaped, escapeCode, j, code, values, columns, imageData, topOfScreen, x, y, savedX, savedY, foreground, background, bold, blink, inverse, palette, icecolors;
+
+            // Turn bytes into a File object.
+            file = new File(bytes);
+
+            // Reset all the attributes, used upon initialization, and on Esc[0m
+            function resetAttributes() {
+                foreground = 7;
+                background = 0;
+                bold = false;
+                blink = false;
+                inverse = false;
+            }
+            resetAttributes();
+
+            // On the event of a new line, reset <x>, and record a new value for <topOfScreen> or <y> depending on whether the bottom of the screen has already been reached.
+            function newLine() {
+                x = 1;
+                if (y === 26 - 1) {
+                    ++topOfScreen;
+                } else {
+                    ++y;
+                }
+            }
+
+            // Set a new position for <x> and <y>, bounded by the maxumum amount of <columns>, and rows, and the minimum amount, 1.
+            function setPos(newX, newY) {
+                x = Math.min(columns, Math.max(1, newX));
+                y = Math.min(26, Math.max(1, newY));
+            }
+
+            // Initialize <x>, <y>, and <topOfScreen>.
             x = 1;
-            if (y === 26 - 1) {
-                ++topOfScreen;
+            y = 1;
+            topOfScreen = 0;
+
+            // Reset variables which store the escape code string appended to whilst parsing <escapeCode>, and the variable which records if the parse is running in <escaped> mode.
+            escapeCode = "";
+            escaped = false;
+
+            // If there is a sauce record...
+            if (file.sauce) {
+                // Do a weak sanity check to see if there is a valid column setting, and use it if it passes.
+                if (file.sauce.tInfo1 > 0) {
+                    columns = file.sauce.tInfo1;
+                } else {
+                    columns = 80;
+                }
+                // If no-blink mode is set in the sauce flags, use it. Otherwise, default to <options.icecolors> setting.
+                icecolors = file.sauce.flags & 1 || options.icecolors;
             } else {
-                ++y;
+                // If "ced" mode has been invoked, set the <columns> to 78 character wide. Otherwise, use the default 80.
+                if (options.mode === "ced") {
+                    columns = 78;
+                } else {
+                    columns = 80;
+                }
+                // Set <icecolors> to whatever was chosen by the user, or set as the default by readBytes().
+                icecolors = options.icecolors;
             }
-        }
 
-        function setPos(newX, newY) {
-            x = Math.min(80, Math.max(1, newX));
-            y = Math.min(26, Math.max(1, newY));
-        }
+            // Create the ScreenData() object at the required width.
+            imageData = new ScreenData(columns);
 
-        x = 1;
-        y = 1;
+            // Returns an array of values found in <escapeCode>, seperated by ";". If there value is not a number, or missing, then the default value of 1 is used.
+            function getValues() {
+                return escapeCode.substr(1, escapeCode.length - 2).split(";").map(function (value) {
+                    var parsedValue;
+                    parsedValue = parseInt(value, 10);
+                    return isNaN(parsedValue) ? 1 : parsedValue;
+                });
+            }
 
-        escapeCode = "";
-        escaped = false;
-
-        if (file.sauce && file.sauce.tInfo1 > 0) {
-            columns = file.sauce.tInfo1;
-        } else if (options.mode === "ced") {
-            columns = 78;
-        } else {
-            columns = 80;
-        }
-
-        imageData = new ScreenData(columns);
-        topOfScreen = 0;
-
-        function getValues() {
-            return escapeCode.substr(1, escapeCode.length - 2).split(";").map(function (value) {
-                var parsedValue;
-                parsedValue = parseInt(value, 10);
-                return isNaN(parsedValue) ? 1 : parsedValue;
-            });
-        }
-
-        while (!file.eof()) {
-            code = file.get();
-            if (escaped) {
-                escapeCode += String.fromCharCode(code);
-                if ((code >= 65 && code <= 90) || (code >= 97 && code <= 122)) {
-                    escaped = false;
-                    values = getValues();
-                    if (escapeCode.charAt(0) === "[") {
-                        switch (escapeCode.charAt(escapeCode.length - 1)) {
-                        case "A":
-                            y = Math.max(1, y - values[0]);
-                            break;
-                        case "B":
-                            y = Math.min(26 - 1, y + values[0]);
-                            break;
-                        case "C":
-                            if (x === columns) {
-                                newLine();
-                            }
-                            x = Math.min(columns, x + values[0]);
-                            break;
-                        case "D":
-                            x = Math.max(1, x - values[0]);
-                            break;
-                        case "H":
-                            if (values.length === 1) {
-                                setPos(1, Math.min(values[0]));
-                            } else {
-                                setPos(values[1], values[0]);
-                            }
-                            break;
-                        case "J":
-                            if (values[0] === 2) {
-                                x = 1;
-                                y = 1;
-                                imageData.reset();
-                            }
-                            break;
-                        case "K":
-                            for (j = x - 1; j < columns; ++j) {
-                                imageData.set(j, y - 1 + topOfScreen, 0, 0);
-                            }
-                            break;
-                        case "m":
-                            for (j = 0; j < values.length; ++j) {
-                                if (values[j] >= 30 && values[j] <= 37) {
-                                    foreground = values[j] - 30;
-                                } else if (values[j] >= 40 && values[j] <= 47) {
-                                    background = values[j] - 40;
+            while (!file.eof()) {
+                // Obtain the current character <code>.
+                code = file.get();
+                if (escaped) {
+                    // If the routine is in <escaped> mode, add the <code> to the <escapeCode> string.
+                    escapeCode += String.fromCharCode(code);
+                    // If the code terminates the <escaped> mode...
+                    if ((code >= 65 && code <= 90) || (code >= 97 && code <= 122)) {
+                        // ... set the mode to unescaped, and obtain the values in the escaped string.
+                        escaped = false;
+                        values = getValues();
+                        // Check for a valid CSI code.
+                        if (escapeCode.charAt(0) === "[") {
+                            switch (escapeCode.charAt(escapeCode.length - 1)) {
+                            case "A": // Up cursor.
+                                y = Math.max(1, y - values[0]);
+                                break;
+                            case "B": // Down cursor.
+                                y = Math.min(26 - 1, y + values[0]);
+                                break;
+                            case "C": // Forward cursor.
+                                if (x === columns) {
+                                    newLine();
+                                }
+                                x = Math.min(columns, x + values[0]);
+                                break;
+                            case "D": // Backward cursor.
+                                x = Math.max(1, x - values[0]);
+                                break;
+                            case "H": // Set the cursor position by calling setPos(), first <y>, then <x>.
+                                if (values.length === 1) {
+                                    setPos(1, values[0]);
                                 } else {
-                                    switch (values[j]) {
-                                    case 0:
-                                        resetAttributes();
-                                        break;
-                                    case 1:
-                                        bold = true;
-                                        break;
-                                    case 5:
-                                        blink = true;
-                                        break;
-                                    case 7:
-                                        inverse = true;
-                                        break;
-                                    case 22:
-                                        bold = false;
-                                        break;
-                                    case 25:
-                                        blink = false;
-                                        break;
-                                    case 27:
-                                        inverse = false;
-                                        break;
-                                    case 39:
-                                        break;
-                                    default:
-                                        break;
+                                    setPos(values[1], values[0]);
+                                }
+                                break;
+                            case "J": // Clear screen.
+                                if (values[0] === 2) {
+                                    x = 1;
+                                    y = 1;
+                                    imageData.reset();
+                                }
+                                break;
+                            case "K": // Clear until the end of line.
+                                for (j = x - 1; j < columns; ++j) {
+                                    imageData.set(j, y - 1 + topOfScreen, 0, 0);
+                                }
+                                break;
+                            case "m": // Attributes, work through each code in turn.
+                                for (j = 0; j < values.length; ++j) {
+                                    if (values[j] >= 30 && values[j] <= 37) {
+                                        // Set the <foreground> color, points to a value in the <palette> array...
+                                        foreground = values[j] - 30;
+                                    } else if (values[j] >= 40 && values[j] <= 47) {
+                                        // ... and for <background>, if the required value is used.
+                                        background = values[j] - 40;
+                                    } else {
+                                        switch (values[j]) {
+                                        case 0: // Reset attributes
+                                            resetAttributes();
+                                            break;
+                                        case 1: // Bold
+                                            bold = true;
+                                            break;
+                                        case 5: // Blink
+                                            blink = true;
+                                            break;
+                                        case 7: // Inverse
+                                            inverse = true;
+                                            break;
+                                        case 22: // Bold off
+                                            bold = false;
+                                            break;
+                                        case 25: // Blink off
+                                            blink = false;
+                                            break;
+                                        case 27: // Inverse off
+                                            inverse = false;
+                                            break;
+                                        }
                                     }
                                 }
-                            }
-                            break;
-                        case "s":
-                            savedX = x;
-                            savedY = y;
-                            break;
-                        case "u":
-                            x = savedX;
-                            y = savedY;
-                            break;
-                        default:
-                            break;
-                        }
-                    }
-                    escapeCode = "";
-                }
-            } else {
-                switch (code) {
-                case 10:
-                    newLine();
-                    break;
-                case 13:
-                    if (file.peek() === 0x0A) {
-                        file.read(1);
-                        newLine();
-                    }
-                    break;
-                case 26:
-                    break;
-                default:
-                    if (code === 27 && file.peek() === 0x5B) {
-                        escaped = true;
-                    } else {
-                        if (options.mode === "ced") {
-                            imageData.set(x - 1, y - 1 + topOfScreen, code, 1);
-                        } else {
-                            if (!inverse) {
-                                imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (foreground + 8) : foreground) + (blink && options.icecolors ? (background + 8 << 4) : (background << 4)));
-                            } else {
-                                imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (background + 8) : background) + (blink && options.icecolors ? (foreground + 8 << 4) : (foreground << 4)));
+                                break;
+                            case "s": // Save the current <x> and <y> positions.
+                                savedX = x;
+                                savedY = y;
+                                break;
+                            case "u": // Restore the current <x> and <y> positions.
+                                x = savedX;
+                                y = savedY;
+                                break;
                             }
                         }
-                        if (++x === columns + 1) {
-                            newLine();
-                        }
-                    }
-                }
-            }
-        }
-
-        switch (options.bits) {
-        case "ced":
-            palette = Palette.CED;
-            break;
-        case "workbench":
-            palette = Palette.WORKBENCH;
-            break;
-        default:
-            palette = Palette.ANSI;
-        }
-
-        return {
-            "imageData": imageData.getData(),
-            "rowLength": imageData.rowLength,
-            "palette": palette,
-            "width": columns,
-            "height": imageData.getHeight(),
-            "sauce": file.sauce
-        };
-    }
-
-    function asc(bytes) {
-        var file, imageData, code, x, y;
-
-        file = new File(bytes);
-        imageData = new ScreenData(80);
-
-        x = 0;
-        y = 0;
-
-        while (!file.eof()) {
-            code = file.get();
-            if (code === 13 && file.peek() === 10) {
-                file.read(1);
-                ++y;
-                x = 0;
-            } else if (code === 10) {
-                ++y;
-                x = 0;
-            } else {
-                imageData.set(x++, y, code, 1);
-            }
-        }
-
-        return {
-            "imageData": imageData.getData(),
-            "palette": Palette.ASC_PC,
-            "width": 80,
-            "rowLength": imageData.rowLength,
-            "height": imageData.getHeight(),
-            "sauce": file.sauce
-        };
-    }
-
-    function bin(bytes, options) {
-        var file, imageData, i;
-
-        file = new File(bytes);
-        imageData = file.read(file.size);
-        if (!options.icecolors) {
-            for (i = 1; i < imageData.length; i += 2) {
-                imageData[i] = imageData[i] & 127;
-            }
-        }
-
-        return {
-            "height": Math.round(imageData.length / 2 / options.columns),
-            "imageData": imageData,
-            "palette": Palette.BIN,
-            "width": options.columns,
-            "rowLength": options.columns * 2,
-            "sauce": file.sauce
-        };
-    }
-
-    function idf(bytes) {
-        var file, width, palette, font, imageData, c, loop, ch, attr;
-
-        file = new File(bytes);
-
-        file.seek(8);
-
-        width = file.get16() + 1;
-
-        imageData = new ScreenData(width);
-
-        file.seek(12);
-
-        while (file.getPos() < file.size - 4144) {
-            c = file.get16();
-            if (c === 1) {
-                loop = file.get();
-                file.get();
-                ch = file.get();
-                attr = file.get();
-                while (loop-- > 0) {
-                    imageData.push(ch, attr);
-                }
-            } else {
-                imageData.push(c & 255, c >> 8);
-            }
-        }
-
-        font = Font.font8x16x256(file);
-
-        palette = Palette.triplets16(file);
-
-        return {
-            "font": font,
-            "height": imageData.getHeight(),
-            "imageData": imageData.getData(),
-            "palette": palette,
-            "width": width,
-            "rowLength": imageData.rowLength,
-            "sauce": file.sauce
-        };
-    }
-
-    function pcb(bytes, options) {
-        var file, loop, charCode, bg, fg, x, y, imageData;
-
-        file = new File(bytes);
-
-        imageData = new ScreenData(80);
-
-        bg = 0;
-        fg = 7;
-        loop = x = y = 0;
-
-        function printChar() {
-            imageData.set(x, y, charCode, fg + (bg << 4));
-            if (++x === 80) {
-                y++;
-                x = 0;
-            }
-        }
-
-        while (loop < file.size) {
-            charCode = bytes[loop];
-
-            if (charCode === 26) {
-                break;
-            }
-
-            switch (charCode) {
-            case 13:
-                break;
-            case 10:
-                y++;
-                x = 0;
-                break;
-            case 9:
-                x += 8;
-                break;
-            case 64:
-                if (bytes[loop + 1] === 88) {
-                    bg = bytes[loop + 2] - ((bytes[loop + 2] >= 65) ? 55 : 48);
-                    if (!options.icecolors && bg > 7) {
-                        bg -= 8;
-                    }
-                    fg = bytes[loop + 3] - ((bytes[loop + 3] >= 65) ? 55 : 48);
-                    loop += 3;
-                } else if (bytes[loop + 1] === 67 && bytes[loop + 2] === 76 && bytes[loop + 3] === 83) {
-                    x = y = 0;
-                    imageData.reset();
-                    loop += 4;
-                } else if (bytes[loop + 1] === 80 && bytes[loop + 2] === 79 && bytes[loop + 3] === 83 && bytes[loop + 4] === 58) {
-                    if (bytes[loop + 6] === 64) {
-                        x = ((bytes[loop + 5]) - 48) - 1;
-                        loop += 5;
-                    } else {
-                        x = (10 * ((bytes[loop + 5]) - 48) + (bytes[loop + 6]) - 48) - 1;
-                        loop += 6;
+                        // Finally, reset the <escapeCode>.
+                        escapeCode = "";
                     }
                 } else {
-                    printChar();
+                    // If not in <escaped> mode, treat <code> as a literal.
+                    switch (code) {
+                    case 10: // Lone linefeed (LF).
+                        newLine();
+                        break;
+                    case 13: // Carriage Return, and Linefeed (CRLF)
+                        if (file.peek() === 0x0A) {
+                            file.read(1);
+                            newLine();
+                        }
+                        break;
+                    case 26: // Ignore eof characters until the actual end-of-file, or sauce record has been reached.
+                        break;
+                    default:
+                        // Go in <escaped> mode if "Esc[" is seen.
+                        if (code === 27 && file.peek() === 0x5B) {
+                            escaped = true;
+                        } else {
+                            // If "ced" mod has been invoked, don't record any additional attribute data.
+                            if (options.mode === "ced") {
+                                imageData.set(x - 1, y - 1 + topOfScreen, code, 1);
+                            } else {
+                                 // In <inverse> mode, or not, set the character <code> and attribute data to the <imageData> object, according to the current <foreground>, <background>, <icecolors>, <bold>, and <blink> setting.
+                                if (!inverse) {
+                                    imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (foreground + 8) : foreground) + (blink && icecolors ? (background + 8 << 4) : (background << 4)));
+                                } else {
+                                    imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (background + 8) : background) + (blink && icecolors ? (foreground + 8 << 4) : (foreground << 4)));
+                                }
+                            }
+                            // If the end of row has been reached, start a new line.
+                            if (++x === columns + 1) {
+                                newLine();
+                            }
+                        }
+                    }
                 }
+            }
+
+            // Choose the correct Palette constant, depending on whichever mode has been set. See Palette for more information.
+            switch (options.bits) {
+            case "ced":
+                palette = Palette.CED;
+                break;
+            case "workbench":
+                palette = Palette.WORKBENCH;
                 break;
             default:
-                printChar();
+                palette = Palette.ANSI;
             }
-            loop++;
+
+            // Returns an object usable by display() to convert into an RGBA array.
+            return {
+                "imageData": imageData.getData(),
+                "rowLength": imageData.rowLength, // size of each row in bytes.
+                "palette": palette,
+                "width": columns,
+                "height": imageData.getHeight(),
+                "sauce": file.sauce // SAUCE record.
+            };
         }
 
-        return {
-            "height": imageData.getHeight(),
-            "imageData": imageData.getData(),
-            "palette": Palette.BIN,
-            "width": 80,
-            "rowLength": imageData.rowLength,
-            "sauce": file.sauce
-        };
-    }
+        // A function to parse a sequence of bytes representing an ASCII plain-text file.
+        function asc(bytes) {
+            var file, imageData, code, x, y;
 
-    function ScreenData24(width) {
-        var imageData, maxY, pos;
+            // Create a new <file> object, based on <bytes>, and create an <imageData> representation of the screen.
+            file = new File(bytes);
+            imageData = new ScreenData(80);
 
-        imageData = new Uint8Array(width * 27 * 9);
-        maxY = 0;
-        pos = 0;
+            // Initialize the cursor position by setting <x> and <y>.
+            x = 0;
+            y = 0;
 
-        function extendImageData(y) {
-            var newImageData;
-            newImageData = new Uint8Array(width * (y + 27) * 9 + imageData.length);
-            newImageData.set(imageData, 0);
-            imageData = newImageData;
-        }
-
-        this.set = function (x, y, charCode, fg, bg) {
-            pos = (y * width + x) * 9;
-            if (pos >= imageData.length) {
-                extendImageData(y);
-            }
-            imageData[pos] = charCode;
-            imageData.set(fg, pos + 1);
-            imageData.set(bg, pos + 5);
-            if (y > maxY) {
-                maxY = y;
-            }
-        };
-
-        this.getData = function () {
-            var subarray, i;
-            for (subarray = imageData.subarray(0, width * (maxY + 1) * 9), i = 0; i < subarray.length; i += 9) {
-                subarray[i + 4] = 255;
-                subarray[i + 8] = 255;
-            }
-            return subarray;
-        };
-
-        this.getHeight = function () {
-            return maxY + 1;
-        };
-
-        this.rowLength = width * 9;
-    }
-
-    function tnd(bytes) {
-        var file, x, y, imageData, charCode, fg, bg;
-
-        function get32(file) {
-            var v;
-            v = file.get() << 24;
-            v += file.get() << 16;
-            v += file.get() << 8;
-            return v + file.get();
-        }
-
-        file = new File(bytes);
-
-        if (file.get() !== 24) {
-            throw "File ID does not match.";
-        }
-        if (file.getS(8) !== "TUNDRA24") {
-            throw "File ID does not match.";
-        }
-
-        fg = new Uint8Array(3);
-        bg = new Uint8Array(3);
-        x = y = 0;
-
-        imageData = new ScreenData24(80);
-
-        while (!file.eof()) {
-            if (x === 80) {
-                x = 0;
-                ++y;
-            }
-            charCode = file.get();
-            if (charCode === 1) {
-                y = get32(file);
-                x = get32(file);
-            }
-            if (charCode === 2) {
-                charCode = file.get();
-                file.get();
-                fg.set(file.read(3), 0);
-            }
-            if (charCode === 4) {
-                charCode = file.get();
-                file.get();
-                bg.set(file.read(3), 0);
-            }
-            if (charCode === 6) {
-                charCode = file.get();
-                file.get();
-                fg.set(file.read(3), 0);
-                file.get();
-                bg.set(file.read(3), 0);
-            }
-            if (charCode !== 1 && charCode !== 2 && charCode !== 4 && charCode !== 6) {
-                imageData.set(x, y, charCode, fg, bg);
-                ++x;
-            }
-        }
-
-        return {
-            "height": imageData.getHeight(),
-            "imageData": imageData.getData(),
-            "palette": undefined,
-            "width": 80,
-            "rowLength": imageData.rowLength,
-            "sauce": file.sauce
-        };
-    }
-
-    function xb(bytes) {
-        var file, header, palette, font, imageData;
-
-        function XBinHeader(file) {
-            var flags;
-
-            if (file.getS(4) !== "XBIN") {
-                throw "File ID does not match.";
-            }
-
-            if (file.get() !== 26) {
-                throw "File ID does not match.";
-            }
-
-            this.width = file.get16();
-            this.height = file.get16();
-
-            this.fontHeight = file.get();
-
-            if (this.fontHeight === 0 || this.fontHeight > 32) {
-                throw "Illegal value for the font height (" + this.fontHeight + ").";
-            }
-
-            flags = file.get();
-
-            this.palette = ((flags & 1) === 1);
-            this.font = ((flags & 2) === 2);
-
-            if (this.fontHeight !== 16 && !this.font) {
-                throw "A non-standard font size was defined, but no font information was included with the file.";
-            }
-
-            this.compressed = ((flags & 4) === 4);
-            this.nonBlink = ((flags & 8) === 8);
-            this.char512 = ((flags & 16) === 16);
-        }
-
-        function uncompress(file, width, height) {
-            var uncompressed, p, i, j, repeatAttr, repeatChar, count;
-            uncompressed = new Uint8Array(width * height * 2);
-            i = 0;
-            while (i < uncompressed.length) {
-                p = file.get();
-                count = p & 63;
-                switch (p >> 6) {
-                case 1:
-                    for (repeatChar = file.get(), j = 0; j <= count; ++j) {
-                        uncompressed[i++] = repeatChar;
-                        uncompressed[i++] = file.get();
-                    }
-                    break;
-                case 2:
-                    for (repeatAttr = file.get(), j = 0; j <= count; ++j) {
-                        uncompressed[i++] = file.get();
-                        uncompressed[i++] = repeatAttr;
-                    }
-                    break;
-                case 3:
-                    for (repeatChar = file.get(), repeatAttr = file.get(), j = 0; j <= count; ++j) {
-                        uncompressed[i++] = repeatChar;
-                        uncompressed[i++] = repeatAttr;
-                    }
-                    break;
-                default:
-                    for (j = 0; j <= count; ++j) {
-                        uncompressed[i++] = file.get();
-                        uncompressed[i++] = file.get();
+            while (!file.eof()) {
+                // Get the character <code>
+                code = file.get();
+                // If we see a carriage return then line feed (CRLF), start a new line.
+                if (code === 13 && file.peek() === 10) {
+                    file.read(1);
+                    ++y;
+                    x = 0;
+                } else if (code === 10) { // A lone line feed (LF) also starts a new line.
+                    ++y;
+                    x = 0;
+                } else {
+                    // For a literal, record the character code at the <x> and <y>.
+                    imageData.set(x, y, code, 1);
+                    // Start a new line when columns is reached.
+                    if (++x === 80) {
+                        ++y;
+                        x = 0;
                     }
                 }
             }
-            return uncompressed;
+
+            // Returns an object usable by display() to convert into an RGBA array.
+            return {
+                "imageData": imageData.getData(),
+                "palette": Palette.ASC_PC,
+                "width": 80,
+                "rowLength": imageData.rowLength, // size of each row in bytes.
+                "height": imageData.getHeight(),
+                "sauce": file.sauce // SAUCE record.
+            };
         }
 
-        file = new File(bytes);
-        header = new XBinHeader(file);
+        // A function to parse a sequence of bytes representing a raw display dump.
+        function bin(bytes, options) {
+            var file, imageData, i, icecolors;
 
-        palette = header.palette ? Palette.triplets16(file) : Palette.BIN;
-        font = header.font ? Font.xbin(file, header.fontHeight) : Font.preset("80x25");
-        imageData = header.compressed ? uncompress(file, header.width, header.height) : file.read(header.width * header.height * 2);
+            // Create a new <file> object, based on <bytes>, and create an <imageData> representation of the screen.
+            file = new File(bytes);
+            imageData = file.read();
 
+            // If there is sauce record, look for an <icecolors> setting in flags, use the user-defined or default setting if not.
+            if (file.sauce) {
+                icecolors = file.sauce.flags & 1 || options.icecolors;
+            } else {
+                icecolors = options.icecolors;
+            }
+
+            // If <icecolors> is turned off, make sure the attribute data is corrected to remove the background bright bit.
+            if (!icecolors) {
+                for (i = 1; i < imageData.length; i += 2) {
+                    imageData[i] = imageData[i] & 127;
+                }
+            }
+
+            // Returns an object usable by display() to convert into an RGBA array.
+            return {
+                "height": Math.round(imageData.length / 2 / options.columns),
+                "imageData": imageData,
+                "palette": Palette.BIN,
+                "width": options.columns,
+                "rowLength": options.columns * 2, // Length of each row in bytes.
+                "sauce": file.sauce // SAUCE record.
+            };
+        }
+
+        // A function to parse a sequence of bytes representing an iCE Draw file format.
+        function idf(bytes) {
+            var file, columns, palette, font, imageData, c, loop, ch, attr;
+
+            // Convert the bytes to a File() object.
+            file = new File(bytes);
+
+            // Seek to the column setting, and store.
+            file.seek(8);
+            columns = file.get16() + 1;
+
+            // Create the <screenData> based on the column width.
+            imageData = new ScreenData(columns);
+
+            // Seek to the raw image data, and decode based on a run length encoding method.
+            file.seek(12);
+            while (file.getPos() < file.size - 4144) {
+                c = file.get16();
+                if (c === 1) {
+                    loop = file.get();
+                    file.get();
+                    ch = file.get();
+                    attr = file.get();
+                    while (loop-- > 0) {
+                        imageData.push(ch, attr);
+                    }
+                } else {
+                    imageData.push(c & 255, c >> 8);
+                }
+            }
+
+            // Decode the font and palette data.
+            font = Font.font8x16x256(file);
+            palette = Palette.triplets16(file);
+
+            return {
+                "font": font,
+                "height": imageData.getHeight(),
+                "imageData": imageData.getData(),
+                "palette": palette,
+                "width": columns,
+                "rowLength": imageData.rowLength, // The length of each row of text in <imageData>, in bytes.
+                "sauce": file.sauce // The SAUCE record.
+            };
+        }
+
+        // A function to parse a sequence of bytes representing PCBoard file format.
+        function pcb(bytes, options) {
+            var file, loop, charCode, bg, fg, icecolors, x, y, imageData;
+
+            // Convert bytes into a File() object, only for the convenience of later extracting the sauce record.
+            file = new File(bytes);
+            imageData = new ScreenData(80);
+
+            // Reset all colour attributes, <bg> and <fg> and cursor positions, <x> and <y>.
+            bg = 0;
+            fg = 7;
+            x = 0;
+            y = 0;
+
+            // Set <icecolors> depending on the setting of flags in the sauce record
+            if (file.sauce) {
+                icecolors = file.sauce.flags & 1 || options.icecolors;
+            } else {
+                icecolors = options.icecolors;
+            }
+
+            // Convenient function, to insert the current character code, <charCode>, with foreground and background attributes, <fg> and <bg>, at the current cursor position, <x> and <y>.
+            function printChar() {
+                imageData.set(x, y, charCode, fg + (bg << 4));
+                if (++x === 80) {
+                    y++;
+                    x = 0;
+                }
+            }
+
+            // Start the image data decoding loop
+            loop = 0;
+            while (loop < file.size) {
+                // <charCode>, the current character under inspection.
+                charCode = bytes[loop];
+
+                // Exit if we encounter an EOF character.
+                if (charCode === 26) {
+                    break;
+                }
+
+                switch (charCode) {
+                case 13: // Ignore Carriage Returns <CR>
+                    break;
+                case 10: // Linefeed character (LF), start a new line.
+                    y++;
+                    x = 0;
+                    break;
+                case 9: // Horizontal tabs, add spaces.
+                    x += 8;
+                    break;
+                case 64: // If we have a control code...
+                     // ... look ahead to see if it for and attribute change...
+                    if (bytes[loop + 1] === 88) {
+                        bg = bytes[loop + 2] - ((bytes[loop + 2] >= 65) ? 55 : 48);
+                        if (!icecolors && bg > 7) {
+                            bg -= 8;
+                        }
+                        fg = bytes[loop + 3] - ((bytes[loop + 3] >= 65) ? 55 : 48);
+                        loop += 3;
+                        // ... or to clear the screen...
+                    } else if (bytes[loop + 1] === 67 && bytes[loop + 2] === 76 && bytes[loop + 3] === 83) {
+                        x = y = 0;
+                        imageData.reset();
+                        loop += 4;
+                        // ... or to set the cursor position.
+                    } else if (bytes[loop + 1] === 80 && bytes[loop + 2] === 79 && bytes[loop + 3] === 83 && bytes[loop + 4] === 58) {
+                        if (bytes[loop + 6] === 64) {
+                            x = ((bytes[loop + 5]) - 48) - 1;
+                            loop += 5;
+                        } else {
+                            x = (10 * ((bytes[loop + 5]) - 48) + (bytes[loop + 6]) - 48) - 1;
+                            loop += 6;
+                        }
+                        // Otherwise, treat the control code as a literal.
+                    } else {
+                        printChar();
+                    }
+                    break;
+                default: // Handle a literal character.
+                    printChar();
+                }
+                loop++;
+            }
+
+            return {
+                "height": imageData.getHeight(),
+                "imageData": imageData.getData(),
+                "palette": Palette.BIN,
+                "width": 80,
+                "rowLength": imageData.rowLength, // Length of the <imageData> per row, in bytes.
+                "sauce": file.sauce // The sauce record.
+            };
+        }
+
+        // A function to parse a sequence of bytes representing a Tundra file format.
+        function tnd(bytes) {
+            var file, x, y, imageData, charCode, fg, bg;
+
+            // Routine to retrieve a 32-bit unsigned integer from a <file object>
+            function get32(file) {
+                var value;
+                value = file.get() << 24;
+                value += file.get() << 16;
+                value += file.get() << 8;
+                return value + file.get();
+            }
+
+            // Convert the bytes into a File() object;
+            file = new File(bytes);
+
+            // THrow an error if the magic number in the header isn't seen.
+            if (file.get() !== 24) {
+                throw "File ID does not match.";
+            }
+            if (file.getS(8) !== "TUNDRA24") {
+                throw "File ID does not match.";
+            }
+
+            // Since Tundra files use 24-bit palettes, setup the foreground and background variables, <fg> and <bg>, as RGB arrays, and initialize the cursor positions.
+            fg = new Uint8Array(3);
+            bg = new Uint8Array(3);
+            x = 0;
+            y = 0;
+
+            // Create the <imageData> object, as a 24-bit version.
+            imageData = new ScreenData24(80);
+
+            while (!file.eof()) {
+                // Start a newline if the current <x> position exceeds the column width.
+                if (x === 80) {
+                    x = 0;
+                    ++y;
+                }
+                // Fetch the next character for inspection.
+                charCode = file.get();
+                // Cursor positioning code.
+                if (charCode === 1) {
+                    y = get32(file);
+                    x = get32(file);
+                }
+                // Foreground attribute code.
+                if (charCode === 2) {
+                    charCode = file.get();
+                    file.get();
+                    fg.set(file.read(3), 0);
+                }
+                // Background attribute code.
+                if (charCode === 4) {
+                    charCode = file.get();
+                    file.get();
+                    bg.set(file.read(3), 0);
+                }
+                // Both foreground and background setting code.
+                if (charCode === 6) {
+                    charCode = file.get();
+                    file.get();
+                    fg.set(file.read(3), 0);
+                    file.get();
+                    bg.set(file.read(3), 0);
+                }
+                // In case we see a literal, print it (<charCode>), with the current foreground and background attributes, <fg> and <bg>.
+                if (charCode !== 1 && charCode !== 2 && charCode !== 4 && charCode !== 6) {
+                    imageData.set(x, y, charCode, fg, bg);
+                    ++x;
+                }
+            }
+
+            return {
+                "height": imageData.getHeight(),
+                "imageData": imageData.getData(),
+                "palette": undefined, // Set to undefined, as the palette information is in the <imageData> object.
+                "width": 80,
+                "rowLength": imageData.rowLength, // The length of each row in <imageData>, in bytes.
+                "sauce": file.sauce // The sauce record.
+            };
+        }
+
+        // A function to parse a sequence of bytes representing an XBiN file format.
+        function xb(bytes) {
+            var file, header, palette, font, imageData;
+
+            // This function is called to parse the XBin header.
+            function XBinHeader(file) {
+                var flags;
+
+                // Look for the magic number, throw an error if not found.
+                if (file.getS(4) !== "XBIN") {
+                    throw "File ID does not match.";
+                }
+                if (file.get() !== 26) {
+                    throw "File ID does not match.";
+                }
+
+                // Get the dimensions of the image...
+                this.width = file.get16();
+                this.height = file.get16();
+
+                // ... and the height of the font, if included.
+                this.fontHeight = file.get();
+
+                //  Sanity check for the font height, throw an error if failed.
+                if (this.fontHeight === 0 || this.fontHeight > 32) {
+                    throw "Illegal value for the font height (" + this.fontHeight + ").";
+                }
+
+                // Retrieve the flags.
+                flags = file.get();
+
+                // Check to see if a palette and font is included.
+                this.palette = ((flags & 1) === 1);
+                this.font = ((flags & 2) === 2);
+
+                // Sanity check for conflicting information in font settings.
+                if (this.fontHeight !== 16 && !this.font) {
+                    throw "A non-standard font size was defined, but no font information was included with the file.";
+                }
+
+                // Check to see if the image data is <compressed>, if non-blink mode is set, <nonBlink>, and if 512 characters are included with the font data. <char512>.
+                this.compressed = ((flags & 4) === 4);
+                this.nonBlink = ((flags & 8) === 8);
+                this.char512 = ((flags & 16) === 16);
+            }
+
+            // Routine to decompress data found in an XBin <file>, which contains a Run-Length encoding scheme. Needs to know the current <width> and <height> of the image.
+            function uncompress(file, width, height) {
+                var uncompressed, p, i, j, repeatAttr, repeatChar, count;
+                // Initialize the data used to store the image, each text character has two bytes, one for the character code, and the other for the attribute.
+                uncompressed = new Uint8Array(width * height * 2);
+                i = 0;
+                while (i < uncompressed.length) {
+                    p = file.get(); // <p>, the current code under inspection.
+                    count = p & 63; // <count>, the times data is repeated
+                    switch (p >> 6) { // Look at which RLE scheme to use
+                    case 1: // Handle repeated character code.
+                        for (repeatChar = file.get(), j = 0; j <= count; ++j) {
+                            uncompressed[i++] = repeatChar;
+                            uncompressed[i++] = file.get();
+                        }
+                        break;
+                    case 2: // Handle repeated attributes.
+                        for (repeatAttr = file.get(), j = 0; j <= count; ++j) {
+                            uncompressed[i++] = file.get();
+                            uncompressed[i++] = repeatAttr;
+                        }
+                        break;
+                    case 3: // Handle repeated character code and attributes.
+                        for (repeatChar = file.get(), repeatAttr = file.get(), j = 0; j <= count; ++j) {
+                            uncompressed[i++] = repeatChar;
+                            uncompressed[i++] = repeatAttr;
+                        }
+                        break;
+                    default: // Handle no RLE.
+                        for (j = 0; j <= count; ++j) {
+                            uncompressed[i++] = file.get();
+                            uncompressed[i++] = file.get();
+                        }
+                    }
+                }
+                return uncompressed; // Return the final, <uncompressed> data.
+            }
+
+            // Convert the bytes to a File() object, and reader the settings in the header, by calling XBinHeader().
+            file = new File(bytes);
+            header = new XBinHeader(file);
+
+            // If palette information is included, read it immediately after the header, if not, use the default palette used for BIN files.
+            palette = header.palette ? Palette.triplets16(file) : Palette.BIN;
+            // If font information is included, read it, if not, use the default 80x25 font.
+            font = header.font ? Font.xbin(file, header.fontHeight) : Font.preset("80x25");
+            // Fetch the image data, and uncompress if necessary.
+            imageData = header.compressed ? uncompress(file, header.width, header.height) : file.read(header.width * header.height * 2);
+
+            return {
+                "font": font,
+                "height": header.height,
+                "imageData": imageData,
+                "palette": palette,
+                "width": header.width,
+                "rowLength": header.width * 2, // The length of each row of text in <imageData>, in bytes.
+                "sauce": file.sauce // The sauce record.
+            };
+        }
+
+        // This routine accepts an image <data> object, with character and attribute pairs, and trims the excess columns by finding the longest line and truncating the array, and set a new width. Used for .diz files.
+        function trimColumns(data) {
+            var i, height, j, maxX, imageData;
+            for (maxX = 0, height = data.imageData.length / 2 / data.width, i = 0; i < data.imageData.length; i += 2) {
+                // If a character code is seen, check to see if it's the highest column value, and record it if necessary.
+                if (data.imageData[i]) {
+                    maxX = Math.max((i / 2) % data.width, maxX);
+                }
+            }
+            // Create a new imageData object, with a reduced size if necessary.
+            for (imageData = new Uint8Array((maxX + 1) * height * 2), i = j = 0; i < data.imageData.length; i += 2) {
+                if (i / 2 % data.width <= maxX) {
+                    imageData[j++] = data.imageData[i];
+                    imageData[j++] = data.imageData[i + 1];
+                }
+            }
+            data.imageData = imageData;
+            // Set the new width.
+            data.width = maxX + 1;
+            // and row length.
+            data.rowLength = data.width * 2;
+            return data;
+        }
+
+        // Parses an array of <bytes>, which represent a file, and calls <callback> when the image has been generated successfully, <splitRows> is set to a value greater than 0 if the image is to be split over multiple images, defined by an amount of rows. And <options> is key-pair list of options supplied by the user.
+        function readBytes(bytes, callback, splitRows, options) {
+            var data, font, returnArray, start, splitLength, displayData;
+
+            // Do a sanity check for "icecolors", to see if it is valid.
+            options.icecolors = (options.icecolors >= 0 && options.icecolors <= 1) ? options.icecolors : 0;
+            // Do a sanity check for "bits", to see if it is valid.
+            switch (options.bits) {
+            case "9":
+            case "ced":
+            case "workbench":
+                break;
+            default:
+                options.bits = "8";
+            }
+            // Do a sanity check for "columns", to see if it is valid.
+            options.columns = (options.columns > 0) ? options.columns : 160;
+            // Do a sanity check for "font", to see if it is valid.
+            options.font = Font.has(options.font) ? options.font : "80x25";
+            // Do a sanity check for "thumbnail", to see if it is valid.            
+            switch (options.thumbnail) {
+            case 1:
+            case 2:
+            case 3:
+                break;
+            default:
+                options.thumbnail = 0;
+            }
+            // Do a sanity check for "imagedata", to see if it is valid.
+            options.imagedata = (options.imagedata >= 0 && options.imagedata <= 1) ? options.imagedata : 0;
+
+            // Choose which parser to use, based on the setting defined in <options.filetype>.
+            switch (options.filetype) {
+            case "txt":
+            case "nfo":
+            case "asc":
+                // For plain-text files, use the ascii parser, and use the default, or user-defined font.
+                data = asc(bytes);
+                font = Font.preset(options.font);
+                break;
+            case "diz":
+            case "ion":
+                // For diz files, use the ascii parser, and use the default, or user-defined font. Also, trim the extra columns.
+                data = trimColumns(asc(bytes));
+                font = Font.preset(options.font);
+                break;
+            case "adf":
+                // For Artworx files, use the adf parser. Font is already defined in the file.
+                data = adf(bytes);
+                break;
+            case "bin":
+                // For raw-dump files, use the bin parser, and use the default, or user-defined font.
+                data = bin(bytes, options);
+                font = Font.preset(options.font);
+                break;
+            case "idf":
+                // For iCE draw files, use the idf parser. Font is already defined in the file.
+                data = idf(bytes);
+                break;
+            case "pcb":
+                // For PCBoard files, use the pcb parser, and use the default, or user-defined font.
+                data = pcb(bytes, options);
+                font = Font.preset(options.font);
+                break;
+            case "tnd":
+                // For Tundra files, use the tnd parser, and use the default, or user-defined font.
+                data = tnd(bytes);
+                font = Font.preset(options.font);
+                break;
+            case "xb":
+                // For XBin files, use the xb parser. Font is already set in the parser.
+                data = xb(bytes);
+                break;
+            default:
+                // For unrecognised filetypes, use the ANSI parser.
+                data = ans(bytes, options);
+                font = Font.preset(options.font);
+            }
+
+            // If the splitRows value is set..
+            if (splitRows > 0) {
+                // .. intialize an array used to store the multiple images, and calculate the byte-length of each image.
+                returnArray = [];
+                splitLength = data.rowLength * splitRows;
+                for (start = 0; start < data.imageData.length; start += splitLength) {
+                    // Call display with each "chunk" of data.
+                    displayData = display(data, start, splitLength, font, options);
+                    // Push the either raw image data or a canvas of each image into the array, according to the <options.imagedata> setting...
+                    returnArray.push(options.imagedata ? displayData : displayDataToCanvas(displayData));
+                }
+                // ... and return it.
+                callback(returnArray, data.sauce);
+            } else {
+                // For a single image, send the data to display()...
+                displayData = display(data, 0, data.imageData.length, font, options);
+                // ... and call callback() with either the raw data, or a canvas element, depending on the <options.imagedata> setting. 
+                callback(options.imagedata ? displayData : displayDataToCanvas(displayData), data.sauce);
+            }
+        }
+
+        // A single entrypoint for the Parser.
         return {
-            "font": font,
-            "height": header.height,
-            "imageData": imageData,
-            "palette": palette,
-            "width": header.width,
-            "rowLength": header.width * 2,
-            "sauce": file.sauce
+            "readBytes": readBytes
         };
-    }
+    }());
 
-    function trimColumns(data) {
-        var i, height, j, maxX, imageData;
-        for (maxX = 0, height = data.imageData.length / 2 / data.width, i = 0; i < data.imageData.length; i += 2) {
-            if (data.imageData[i]) {
-                maxX = Math.max((i / 2) % data.width, maxX);
-            }
-        }
-        for (imageData = new Uint8Array((maxX + 1) * height * 2), i = j = 0; i < data.imageData.length; i += 2) {
-            if (i / 2 % data.width <= maxX) {
-                imageData[j++] = data.imageData[i];
-                imageData[j++] = data.imageData[i + 1];
-            }
-        }
-        data.imageData = imageData;
-        data.width = maxX + 1;
-        data.rowLength = data.width * 2;
-        return data;
-    }
-
-    function readBytes(bytes, callback, splitRows, options) {
-        var data, font, returnArray, start, splitLength, displayData;
-
-        options.icecolors = (options.icecolors >= 0 && options.icecolors <= 1) ? options.icecolors : 0;
-        switch (options.bits) {
-        case "9":
-        case "ced":
-        case "workbench":
-            break;
-        default:
-            options.bits = "8";
-        }
-        options.columns = (options.columns > 0) ? options.columns : 160;
-        options.font = Font.has(options.font) ? options.font : "80x25";
-        switch (options.thumbnail) {
-        case 1:
-        case 2:
-        case 3:
-            break;
-        default:
-            options.thumbnail = 0;
-        }
-        options.imagedata = (options.imagedata >= 0 && options.imagedata <= 1) ? options.imagedata : 0;
-
-        switch (options.filetype) {
-        case "txt":
-        case "nfo":
-        case "asc":
-            data = asc(bytes);
-            font = Font.preset(options.font);
-            break;
-        case "diz":
-        case "ion":
-            data = trimColumns(asc(bytes));
-            font = Font.preset(options.font);
-            break;
-        case "adf":
-            data = adf(bytes);
-            break;
-        case "bin":
-            data = bin(bytes, options);
-            font = Font.preset(options.font);
-            break;
-        case "idf":
-            data = idf(bytes);
-            break;
-        case "pcb":
-            data = pcb(bytes, options);
-            font = Font.preset(options.font);
-            break;
-        case "tnd":
-            data = tnd(bytes);
-            font = Font.preset(options.font);
-            break;
-        case "xb":
-            data = xb(bytes);
-            break;
-        default:
-            data = ans(bytes, options);
-            font = Font.preset(options.font);
-        }
-
-        if (splitRows) {
-            returnArray = [];
-            splitLength = data.rowLength * splitRows;
-            for (start = 0; start < data.imageData.length; start += splitLength) {
-                displayData = display(data, start, splitLength, font, options);
-                returnArray.push(options.imagedata ? displayData : displayDataToCanvas(displayData));
-            }
-            callback(returnArray, data.sauce);
-        } else {
-            displayData = display(data, 0, data.imageData.length, font, options);
-            callback(options.imagedata ? displayData : displayDataToCanvas(displayData), data.sauce);
-        }
-    }
-
+    // Parses an array of <bytes>, calls <callback> upon success. Uses <options> supplied by the user, and calls <callbackFail>, when supplied, if an error is caught.
     function renderBytes(bytes, callback, options, callbackFail) {
+        // Catch any errors.
         try {
-            readBytes(bytes, callback, 0, options || {});
+            // call readBytes(), with 0 as the splitRows option, and create an empty object if options, is missing.
+            Parser.readBytes(bytes, callback, 0, options || {});
         } catch (e) {
             if (callbackFail) {
+                // If an error is caught, call callbackFail()...
                 callbackFail(e);
             } else {
+                // ... otherwise, just throw it back.
                 throw e;
             }
         }
     }
 
+    // Same as renderBytes(), but this fetches a <url> by calling httpGet(), instead of supplying raw bytes.
     function render(url, callback, options, callbackFail) {
+        // Call httpGet() with the supplied <url>.
         httpGet(url, function (bytes) {
+            // Create a blank <options> object, if one wasn't supplied.
             options = options || {};
+            // Set the filetype option, based on the url, if one wasn't already set in <options>.
             if (!options.filetype) {
                 options.filetype = url.split(".").pop().toLowerCase();
             }
+            // Call the version of this function for <bytes>, with the Uint8Array data returned with httpGet().
             renderBytes(bytes, callback, options, callbackFail);
+            // Pass <callbackFail> to httpGet(), in case the network request fails.
         }, callbackFail);
     }
 
+    // Parses an array of <bytes>, calls <callback> upon success. Uses <options> supplied by the user, and calls <callbackFail>, when supplied, if an error is caught. Multiple images are produced, based on the <splitRows> setting, divided by the amount of rows specified.
     function splitRenderBytes(bytes, callback, splitRows, options, callbackFail) {
+        // Catch any errors.
         try {
-            readBytes(bytes, callback, splitRows || 27, options || {});
+            // call readBytes(), with 27 as the default splitRows option, and create an empty object if options, is missing.
+            Parser.readBytes(bytes, callback, splitRows || 27, options || {});
         } catch (e) {
             if (callbackFail) {
+                // If an error is caught, call callbackFail()...
                 callbackFail(e);
             } else {
+                // ... otherwise, just throw it back.
                 throw e;
             }
         }
     }
 
+    // Same as splitRenderBytes(), but this fetches a <url> by calling httpGet(), instead of supplying raw bytes.
     function splitRender(url, callback, splitRows, options, callbackFail) {
+        // Call httpGet() with the supplied <url>.
         httpGet(url, function (bytes) {
+            // Create a blank <options> object, if one wasn't supplied.
             options = options || {};
+            // Set the filetype option, based on the url, if one wasn't already set in <options>.
             if (!options.filetype) {
                 options.filetype = url.split(".").pop().toLowerCase();
             }
+            // Call the version of this function for <bytes>, with the Uint8Array data returned with httpGet().
             splitRenderBytes(bytes, callback, splitRows, options, callbackFail);
+            // Pass <callbackFail> to httpGet(), in case the network request fails.
         }, callbackFail);
     }
 
+    // Receives a sequence of <bytes>, representing an ANSI file, with <options> supplied by the user and returns an Ansimation object which can be used to display and control an animation.
     function Ansimation(bytes, options) {
         var timer, interval, file, font, fontDisplayWidth, icecolors, bits, palette, columns, rows, screenClear, canvas, ctx, blinkCanvas, buffer, bufferCtx, blinkCtx, escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, drawForeground, drawBackground, bold, inverse, blink, fontImageData;
 
+        // Convert bytes to a File() object.
         file = new File(bytes);
+        // Sanity check, and use use <options.icecolors>, if set.
         icecolors = (options.icecolors === undefined) ? false : (options.icecolors === 1);
+        // Set the "bits" option.
         bits = options.bits || "8";
+        // Set the "2J" option.
         screenClear = (options["2J"] === undefined) ? true : (options["2J"] === 1);
 
+        // Choose the right color palette.
         switch (bits) {
         case "ced":
             palette = Palette.CED;
@@ -1442,6 +1733,7 @@ var AnsiLove = (function () {
             palette = Palette.ANSI;
         }
 
+        // If the <columns> setting in the SAUCE record is set, use it.
         if (file.sauce && file.sauce.tInfo1 > 0) {
             columns = file.sauce.tInfo1;
         } else if (options.mode === "ced") {
@@ -1450,16 +1742,21 @@ var AnsiLove = (function () {
             columns = 80;
         }
 
+        // Set the amount of <rows> is set in <options>, use it.
         rows = options.rows || 26;
 
+        // Use the <font> set in <options>, if found in presets, otherwise use the default "80x25".
         font = Font.has(options.font) ? Font.preset(options.font) : Font.preset("80x25");
 
+        // If "bits" isn't set to 9, and this is a 9-bit font, set the <fontDisplayWidth> to 8.
         fontDisplayWidth = (font.width === 9 && bits !== "9") ? 8 : font.width;
 
+        // Initialize the canvas used to display the animation, obtain the context, and create the temporary variable <fontImageData> to store the font image-data when rendered.
         canvas = createCanvas(columns * fontDisplayWidth, rows * font.height);
         ctx = canvas.getContext("2d");
         fontImageData = ctx.createImageData(font.width, font.height);
 
+        // <blinkCanvas> is used to record the blinking "on" and "off" on two seperate images, which are then composited onto the main <canvas> alternately.
         blinkCanvas = [createCanvas(canvas.width, canvas.height), createCanvas(canvas.width, canvas.height)];
         buffer = createCanvas(canvas.width, canvas.height);
         blinkCtx = blinkCanvas.map(function (canvas) {
@@ -1467,6 +1764,7 @@ var AnsiLove = (function () {
         });
         bufferCtx = buffer.getContext("2d");
 
+        // Reset all the text attributes set by ANSI control codes.
         function resetAttributes() {
             foreground = 7;
             background = 0;
@@ -1475,6 +1773,7 @@ var AnsiLove = (function () {
             inverse = false;
         }
 
+        // Clear all the screen data, on all canvases, including the <blinkCanvas> array.
         function clearScreen(sx, sy, width, height) {
             ctx.fillStyle = "rgb(" + palette[0][0] + ", " + palette[0][1] + ", " + palette[0][2] + ")";
             ctx.fillRect(sx, sy, width, height);
@@ -1482,6 +1781,7 @@ var AnsiLove = (function () {
             blinkCtx[1].clearRect(sx, sy, width, height);
         }
 
+        // Clear the text characters held on the <blinkCanvas> array, used when a character is drawn which isn't set to blink.
         function clearBlinkChar(charX, charY) {
             var sx, sy;
             sx = charX * fontDisplayWidth;
@@ -1490,6 +1790,7 @@ var AnsiLove = (function () {
             blinkCtx[1].clearRect(sx, sy, fontDisplayWidth, font.height);
         }
 
+        // Perform a newline operation, if the <y> amount is at the very bottom of the screen, then all canvas elements are shifted up a single line.
         function newLine() {
             x = 1;
             if (y === rows - 1) {
@@ -1509,11 +1810,13 @@ var AnsiLove = (function () {
             return false;
         }
 
+        // Sets the cursor position, <x> and <y>, according to new values. Performs a validation to make sure it remains in the boundries of the canvas.
         function setPos(newX, newY) {
             x = Math.min(columns, Math.max(1, newX));
             y = Math.min(rows, Math.max(1, newY));
         }
 
+        // Resets all the settings, used upon initialization, and to restore after an animation is restarted.
         function resetAll() {
             clearScreen(0, 0, canvas.width, canvas.height);
             resetAttributes();
@@ -1525,6 +1828,7 @@ var AnsiLove = (function () {
 
         resetAll();
 
+        // Obtains all the values currently stores in an <escapeCode> string. If one of the values cannot be parsed by parseInt(), or is missing, then the default value of 1 is used.
         function getValues() {
             return escapeCode.substr(1, escapeCode.length - 2).split(";").map(function (value) {
                 var parsedValue;
@@ -1533,100 +1837,106 @@ var AnsiLove = (function () {
             });
         }
 
+        // Reads a certain amount of bytes, <num>, from the <file> object.
         function read(num) {
             var i;
             for (i = 0; i < num; ++i) {
+                // Break out of the loop if the end of file has been reached.
                 if (file.eof()) {
                     break;
                 }
+                // Store the current character fro inspection in <code>.
                 code = file.get();
                 if (escaped) {
+                    // If the <escaped> mode is set, add the code to <escapeCode> string.
                     escapeCode += String.fromCharCode(code);
+                    // If the character ends the <escapeCode> string...
                     if ((code >= 65 && code <= 90) || (code >= 97 && code <= 122)) {
+                        // Turn <escaped> mode off, and obtain the values in the <escapeCode> string.
                         escaped = false;
                         values = getValues();
+                        // For ANSI control codes.
                         if (escapeCode.charAt(0) === "[") {
                             switch (escapeCode.charAt(escapeCode.length - 1)) {
-                            case "A":
+                            case "A": // Cursor up.
                                 y = Math.max(1, y - values[0]);
                                 break;
-                            case "B":
+                            case "B": // Cursor down.
                                 y = Math.min(rows - 1, y + values[0]);
                                 break;
-                            case "C":
+                            case "C": // Cursor right, creating a newline if necessary.
                                 if (x === columns) {
                                     if (newLine()) {
+                                        // Break out of the loop if the canvas has been shifted up, this causes the screen to be updated after breaking out of the loop to create the effect of smooth scrolling.
                                         return i + 1;
                                     }
                                 }
                                 x = Math.min(columns, x + values[0]);
                                 break;
-                            case "D":
+                            case "D": // Cursor Up.
                                 x = Math.max(1, x - values[0]);
                                 break;
-                            case "H":
+                            case "H": // Set the cursor position, default value of 1 for <x> if missing.
                                 if (values.length === 1) {
                                     setPos(1, Math.min(values[0]));
                                 } else {
                                     setPos(values[1], values[0]);
                                 }
                                 break;
-                            case "J":
+                            case "J": // Clear screen, if allowed in <screenClear>
                                 if (screenClear && values[0] === 2) {
                                     x = 1;
                                     y = 1;
                                     clearScreen(0, 0, canvas.width, canvas.height);
                                 }
                                 break;
-                            case "K":
+                            case "K": // Clear to the end of line.
                                 clearScreen((x - 1) * fontDisplayWidth, (y - 1) * font.height, canvas.width - (x - 1) * fontDisplayWidth, font.height);
                                 break;
-                            case "m":
+                            case "m": // Attribute setting codes.
                                 for (j = 0; j < values.length; ++j) {
                                     if (values[j] >= 30 && values[j] <= 37) {
+                                        // Set the foreground colour.
                                         foreground = values[j] - 30;
                                     } else if (values[j] >= 40 && values[j] <= 47) {
+                                        // Set the background colour.
                                         background = values[j] - 40;
                                     } else {
                                         switch (values[j]) {
-                                        case 0:
+                                        case 0: // Reset attributes.
                                             resetAttributes();
                                             break;
-                                        case 1:
+                                        case 1: // Bold on.
                                             bold = true;
                                             break;
-                                        case 5:
+                                        case 5: // Blink on.
                                             blink = true;
                                             break;
-                                        case 7:
+                                        case 7: // Inverse on.
                                             inverse = true;
                                             break;
-                                        case 22:
+                                        case 22: // Bold off.
                                             bold = false;
                                             break;
-                                        case 25:
+                                        case 25: // Blink off.
                                             blink = false;
                                             break;
-                                        case 27:
+                                        case 27: // Inverse off.
                                             inverse = false;
-                                            break;
-                                        case 39:
-                                            break;
-                                        default:
                                             break;
                                         }
                                     }
                                 }
                                 break;
-                            case "s":
+                            case "s": // Store the current cursor position.
                                 savedX = x;
                                 savedY = y;
                                 break;
-                            case "u":
-                                x = savedX;
-                                y = savedY;
-                                break;
-                            default:
+                            case "u": // Restore the saved cursor position.
+                                if (savedX !== undefined && savedY !== undefined) {
+                                    x = savedX;
+                                    y = savedY;
+                                }
                                 break;
                             }
                         }
@@ -1634,25 +1944,32 @@ var AnsiLove = (function () {
                     }
                 } else {
                     switch (code) {
-                    case 10:
+                    case 10: // For a lone line feed (LF), start a new line.
+                        // Break out of the loop if the canvas has been shifted up, this causes the screen to be updated after breaking out of the loop to create the effect of smooth scrolling.
                         if (newLine()) {
+                            // Return how many characters were interpreted.
                             return i + 1;
                         }
                         break;
                     case 13:
+                        // If a carriage return and line feed are seen together (CRLF), treat as a newline.
                         if (file.peek() === 0x0A) {
                             file.read(1);
+                            // Break out of the loop if the canvas has been shifted up, this causes the screen to be updated after breaking out of the loop to create the effect of smooth scrolling.
                             if (newLine()) {
+                                // Return how many characters were interpreted.
                                 return i + 1;
                             }
                         }
                         break;
-                    case 26:
+                    case 26: // Ignore eof characters.
                         break;
-                    default:
+                    default: // Deal with literals
+                        // If an ANSI control code is seen, go into <escaped> mode.
                         if (code === 27 && file.peek() === 0x5B) {
                             escaped = true;
                         } else {
+                            // Swap colours is <inverse> is set, otherwise, do not.
                             if (inverse) {
                                 drawForeground = background;
                                 drawBackground = foreground;
@@ -1660,15 +1977,19 @@ var AnsiLove = (function () {
                                 drawForeground = foreground;
                                 drawBackground = background;
                             }
+                            // Shift the colours is <bold> is set, observing the current <icecolors> setting.
                             if (bold) {
                                 drawForeground += 8;
                             }
                             if (blink && icecolors) {
                                 drawBackground += 8;
                             }
+                            // Obtain the <fontImageData> by calling font.getData().
                             fontImageData.data.set(font.getData(code, palette, drawForeground, drawBackground), 0);
+                            // Draw the image to the canvas.
                             ctx.putImageData(fontImageData, (x - 1) * fontDisplayWidth, (y - 1) * font.height, 0, 0, fontDisplayWidth, font.height);
                             if (!icecolors) {
+                                // Update the blink canvas elements, by drawing both versions of the blinking data to the <blinkCanvas> array, or if <blink> is not set, clear whatever may already be drawn to these elements.
                                 if (blink) {
                                     blinkCtx[0].putImageData(fontImageData, (x - 1) * fontDisplayWidth, (y - 1) * font.height, 0, 0, fontDisplayWidth, font.height);
                                     fontImageData.data.set(font.getData(code, palette, drawBackground, drawBackground), 0);
@@ -1677,8 +1998,11 @@ var AnsiLove = (function () {
                                     clearBlinkChar(x - 1, y - 1);
                                 }
                             }
+                            // Start a new line if the <columns> boundry has been reached.
                             if (++x === columns + 1) {
+                                // Break out of the loop if the canvas has been shifted up, this causes the screen to be updated after breaking out of the loop to create the effect of smooth scrolling.
                                 if (newLine()) {
+                                    // Return how many characters were interpreted.
                                     return i + 1;
                                 }
                             }
@@ -1687,19 +2011,26 @@ var AnsiLove = (function () {
                 }
             }
 
+            // Return how many characters were interpreted, if we return 0, then the end of file has been reached.
             return i;
         }
 
+        // Starts playing the animation from <file> at the specified <baud> rate. Calls <callback> upon completion>, and only clears the screen when encountering "Esc[2J" if <clearScreen> is set to true.
         function play(baud, callback, clearScreen) {
             var length, drawBlink;
+            // Sanity check for the <clearScreen> setting, defaults to true.
             clearScreen = (clearScreen === undefined) ? true : clearScreen;
+            // Stop playing the animation, <timer>, and stops the blinking <interval> timer, if currently playing.
             clearTimeout(timer);
             clearInterval(interval);
+            // <drawBlink> is used to select which <blinkCanvas> is drawn to the screen.
             drawBlink = false;
+            // Start drawing each <blinkCanvas> to <canvas> alternately, every 250ms.
             interval = setInterval(function () {
                 ctx.drawImage(blinkCanvas[drawBlink ? 1 : 0], 0, 0);
                 drawBlink = !drawBlink;
             }, 250);
+            // When called, drawChunk() will interpret and draw the next chunk of data, the maximum of <length> bytes long, by calling read(), every 10ms. If a value of 0 is returned by read(), call the <callback> function to indicate that it is complete.
             function drawChunk() {
                 if (read(length)) {
                     timer = setTimeout(drawChunk, 10);
@@ -1707,7 +2038,9 @@ var AnsiLove = (function () {
                     callback();
                 }
             }
+            // Calculate roughly how many bytes to draw, based on the <baud> setting.
             length = Math.floor((baud || 115200) / 8 / 100);
+            // If <clearScreen> is set, then clear everything, otherwise, just reset all the attributes and escaped data.
             if (clearScreen) {
                 resetAll();
             } else {
@@ -1716,20 +2049,24 @@ var AnsiLove = (function () {
                 escaped = false;
                 file.seek(0);
             }
+            // Start interpreting the data.
             drawChunk();
         }
 
+        // Stops interpreting data, and copying the <blinkCanvas> to <canvas>
         function stop() {
             clearTimeout(timer);
             clearInterval(interval);
         }
 
+        // Sets <file> to a new array of <bytes>, so new data can be appended to the animation.
         function load(bytes, callback) {
             clearTimeout(timer);
             file = new File(bytes);
             callback(file.sauce);
         }
 
+        // Returns the standard <canvas> and <sauce> information, as well as a <controller> object which is used to <play> and <stop> animations, as well as <load> new data.
         return {
             "canvas": canvas,
             "sauce": file.sauce,
@@ -1741,21 +2078,29 @@ var AnsiLove = (function () {
         };
     }
 
+    // animateBytes() returns a controller object used to control an <ansimation>, based on the supplied <bytes> and <options> provided by the user.
     function animateBytes(bytes, callback, options) {
         var ansimation;
+        // Create the new ansimation object.
         ansimation = new Ansimation(bytes, options || {});
+        // The reason for the timeout here is to return the controller object before calling <callback>, so that the animation isn't started before the controller is returned. Ideally, the controller should be passed via callback(), but it's implemented this way to achieve parity with the render() and splitRender() methods.
         setTimeout(function () {
             callback(ansimation.canvas, ansimation.sauce);
         }, 250);
+        // Return the controller object.
         return ansimation.controller;
     }
 
+    // The same as animateBytes(), but fetches <bytes> from a <url>, and calls <callbackFail> if it fails.
     function animate(url, callback, options, callbackFail) {
         var ansimation;
+        // Fetch the data.
         httpGet(url, function (bytes) {
             ansimation = new Ansimation(bytes, options || {});
             callback(ansimation.canvas, ansimation.sauce);
+            // Pass <callbackFail> to httpGet, in case it fails.
         }, callbackFail);
+        // The reason a new controller object is created here, instead of passing <ansimation.controller> directly, is because <ansimation> isn't initialized until the bytes are received asynchronously, via httpGet().
         return {
             "play": function (baud, callback, clearScreen) {
                 ansimation.controller.play(baud, callback, clearScreen);
@@ -1763,6 +2108,7 @@ var AnsiLove = (function () {
             "stop": function () {
                 ansimation.controller.stop();
             },
+            // In this version of load(), httpGet provides the bytes.
             "load": function (url, callback, callbackFail) {
                 httpGet(url, function (bytes) {
                     ansimation.controller.load(bytes, callback);
@@ -1771,48 +2117,58 @@ var AnsiLove = (function () {
         };
     }
 
+    // If this is running in a Web Worker instance, do not initialize Popup, as it provides an in-browser function, and certain parts of it will throw an error in a off-browser thread. i.e. window.devicePixelRatio.
     if (!self.WorkerLocation) {
+        // Popup collects functions which allows a "pop-up" display to be shown in the browser, instead of calling the various render methods elsewhere.
         Popup = (function () {
             var STYLE_DEFAULTS, FIREFOX, CHROME, SAFARI, browser, retina;
 
+            // Defaults used when rewriting the various CSS properties when creating a new element.
             STYLE_DEFAULTS = {"background-color": "transparent", "background-image": "none", "margin": "0", "padding": "0", "border": "0", "font-size": "100%", "font": "inherit", "vertical-align": "baseline", "color": "black", "display": "block", "cursor": "default", "text-align": "left", "text-shadow": "none", "text-transform": "none", "clear": "none", "float": "none", "overflow": "auto", "position": "relative", "visibility": "visible"};
 
+            // Constants used when recording which browser is in use.
             FIREFOX = 0;
             CHROME = 1;
             SAFARI = 2;
 
+            // Set <browser> to whichever browser can be detected.
             if (navigator.userAgent.indexOf("Firefox") !== -1) {
-                browser = 0;
+                browser = FIREFOX;
             } else if (navigator.userAgent.indexOf("AppleWebKit") !== -1) {
                 if (navigator.userAgent.indexOf("Chrome") !== -1) {
-                    browser = 1;
+                    browser = CHROME;
                 } else {
-                    browser = 2;
+                    browser = SAFARI;
                 }
             }
 
+            // If a "retina"-type display is detected, set <retina> to true.
             retina = window.devicePixelRatio > 1;
 
+            // Works through every element, and discovers the highest z-index recorded. Later used to make sure that elements added to the document are visible.
             function findHighestZIndex() {
                 var elements, highest, i, zIndex;
                 for (i = 0, elements = document.getElementsByTagName("*"), highest = 0; i < elements.length; ++i) {
                     zIndex = document.defaultView.getComputedStyle(elements[i]).zIndex;
-                    if (zIndex !== "auto") {
+                    if (zIndex !== "auto" && zIndex !== "inherit") {
                         highest = Math.max(highest, parseInt(zIndex, 10));
                     }
                 }
                 return highest;
             }
 
+            // Applies styles to an <element> stored in an object <style>
             function applyStyle(element, style) {
                 var name;
                 for (name in style) {
                     if (style.hasOwnProperty(name)) {
+                        // Mark every-one as "important", to make sure that it doesn't inherit any styles on the page.
                         element.style.setProperty(name, style[name], "important");
                     }
                 }
             }
 
+            // Creates a new "div" element, applies the default set of CSS properties, and applies an optional set from <style>.
             function createDiv(style) {
                 var div;
                 style = style || {};
@@ -1822,6 +2178,7 @@ var AnsiLove = (function () {
                 return div;
             }
 
+            // Sets the transition css properties to <element>, and applies a <style> immediately to perform a CSS transition after a short timeout (in order to make sure the transition styles are registered first).
             function transitionCSS(element, transProperty, transDuration, transFunction, style) {
                 element.style.transitionProperty = transProperty;
                 element.style.transitionDuration = transDuration;
@@ -1833,9 +2190,11 @@ var AnsiLove = (function () {
                 }
             }
 
+            // Displays a pop-up, based on the supplied <bytes> and <baud>-rate (if this is set to 0, display as an image). Also uses the user-supplied <options>.
             function show(bytes, baud, options) {
                 var divOverlay, divCanvasContainer;
 
+                // Slides up the <divOverlay> element on the screen by setting various transition styles, also displays a loading spinner, if a url is provided in <options.spinner>
                 function slideUpContainer() {
                     if (options.spinner) {
                         applyStyle(divOverlay, {"background-image": "none"});
@@ -1843,6 +2202,7 @@ var AnsiLove = (function () {
                     transitionCSS(divCanvasContainer, "top", "0.6s", "ease-in-out", {"top": "0"});
                 }
 
+                // Applies styles to a <canvas> element, depending on which <browser> is detected. Makes sure each <canvas> element is displayed vertically without a gap, by setting vertical-align: bottom. "image-rendering" is set to prevent image smoothing on retina type displays.
                 function processCanvas(canvas) {
                     if (retina) {
                         switch (browser) {
@@ -1855,12 +2215,14 @@ var AnsiLove = (function () {
                         }
                     }
 
+                    // Apply default styles.
                     applyStyle(canvas, STYLE_DEFAULTS);
                     canvas.style.verticalAlign = "bottom";
 
                     return canvas;
                 }
 
+                // Creates a new <canvas> element, double scaled, with image smoothing, i.e. nearest neighbour, scaling. This function is used due to the current lack of support for "image-rendering" css property in Chrome.
                 function doubleScale(canvas) {
                     var scaledCanvas, ctx;
                     scaledCanvas = createCanvas(canvas.width * 2, canvas.height * 2);
@@ -1872,87 +2234,128 @@ var AnsiLove = (function () {
                     return scaledCanvas;
                 }
 
+                // Displays an error, in the form of an dialog box, with a defined <message>, and dismisses the overlay element.
                 function error(message) {
                     alert("Error: " + message);
                     document.body.removeChild(divOverlay);
                 }
 
+                // Removes the overlay element.
                 function dismiss(evt) {
                     evt.preventDefault();
                     document.body.removeChild(divOverlay);
                 }
 
+                // Create the overlay element with various css styles.
                 divOverlay = createDiv({"position": "fixed", "left": "0px", "top": "0px", "width": "100%", "height": "100%", "background-color": "rgba(0, 0, 0, 0.8)", "overflow": "scroll", "z-index": (findHighestZIndex() + 1).toString(10), "opacity": "0"});
+                // If a spinner url is provided in <options>, add it to the backdrop of the overlay element...
                 if (options.spinner) {
                     applyStyle(divOverlay, {"background-image": "url(" + options.spinner + ")", "background-position": "center center", "background-repeat": "no-repeat"});
+                    // ... and scale it down to half-size in css-pixels if a retina-type display has been detected.
+                    if (retina) {
+                        applyStyle(divOverlay, {"background-size": "32px 64px"});
+                    }
                 }
+                // Create the elemtn used to containt the canvas element(s).
                 divCanvasContainer = createDiv({"background-color": "black", "box-shadow": "0 8px 32px rgb(0, 0, 0)", "margin": "8px auto", "padding": "16px", "border": "2px solid white", "border-radius": "8px", "top": "100%"});
 
+                // Add the elements to the document.
                 divOverlay.appendChild(divCanvasContainer);
                 document.body.appendChild(divOverlay);
 
+                // Add the transition properties, and start the transition.
                 transitionCSS(divOverlay, "opacity", "0.2s", "ease-out", {"opacity": "1.0"});
 
+                // After the transition has been given time to complete, start the rendering process.
                 setTimeout(function () {
                     var controller;
+                    // If a baud rate setting has been defined, regard as an animation.
                     if (baud > 0) {
                         controller = animateBytes(bytes, function (canvas) {
+                            // Set the container's width based on the width of the canvas element, and display the canvas.
                             divCanvasContainer.style.width = canvas.width + "px";
                             divCanvasContainer.appendChild(processCanvas(canvas));
+                            // Slide up the container.
                             slideUpContainer();
                             setTimeout(function () {
+                                // Start playing the animation after the sliding effect.
                                 controller.play(baud);
                             }, 750);
-                            divOverlay.onclick = dismiss;
-                        }, options);
-                    } else {
+                            // If the overlay is clicked anywhere...
+                            divOverlay.onclick = function (evt) {
+                                // ... dismiss the overlay, and stop the animation.
+                                dismiss(evt);
+                                controller.stop();
+                            };
+                        }, options); // Pass the options to animateBytes.
+                    } else { // If no baud-rate, treat as an image.
                         splitRenderBytes(bytes, function (canvases) {
+                            // Set the container's width based on the width of the first canvas element.
                             divCanvasContainer.style.width = canvases[0].width + "px";
                             canvases.forEach(function (canvas) {
+                                // Double-scale each canvas, if the Chrome browser has been detected.
                                 if (retina && browser === CHROME) {
                                     canvas = doubleScale(canvas);
                                 }
+                                // Append each canvas element to the element container.
                                 divCanvasContainer.appendChild(processCanvas(canvas));
                             });
+                            // Slide up the container.
                             slideUpContainer();
+                            // If the overlay is clicked anywhere dismiss the overlay.
                             divOverlay.onclick = dismiss;
-                        }, 100, options, error);
+                        }, 100, options, error); // Pass the options and error function to splitRenderBytes.
                     }
                 }, 250);
             }
 
+            // Single entrypoint for popup.
             return {
                 "show": show
             };
         }());
     }
 
+    // Calls show() in <Popup>, according to the supplied <bytes> and <options>.
     function popupBytes(bytes, options) {
+        // Set baud-rate to 0, since this is assumed to be an image.
         Popup.show(bytes, 0, options || {});
     }
 
+    // The <url> version of popupBytes(), which gets the <bytes> from a file from the network first, and calls <callbackFail> when the network fetch fails.
     function popup(url, options, callbackFail) {
         httpGet(url, function (bytes) {
+            // Set <options> to an empty object, if not set.
             options = options || {};
+            // Set the filetype to the url extension, if <options.filetype> is not already set.
             if (!options.filetype) {
                 options.filetype = url.split(".").pop().toLowerCase();
             }
+            // Call popupBytes() with the <bytes> returned from the httpGet() operation.
             popupBytes(bytes, options);
+            // Pass <callbackFail> to httpGet(), in case the operation fails.
         }, callbackFail);
     }
 
+    // The animation version of popupBytes(), this sets the <baud> option, defaults to 14400, so the bytes are assumend to represent an ANSI animation.
     function popupAnimationBytes(bytes, baud, options) {
         Popup.show(bytes, baud || 14400, options || {});
     }
 
+    // The <url> version of popupAnimationBytes(), fetches the <bytes> from a httpGet() operation.
     function popupAnimation(url, baud, options, callbackFail) {
         httpGet(url, function (bytes) {
+            // No filetype setting is set here, as the bytes are assumed in an animation to represent an ANSI file.
             popupAnimationBytes(bytes, baud, options);
+            // Pass <callbackFail> to httpGet(), in case the operation fails.
         }, callbackFail);
     }
 
+    // Return all the publicly-available functions for AnsiLove.
     return {
+        "sauceBytes": sauceBytes,
         "sauce": sauce,
+        // Used to convert raw image data to a canvas element, after a web worker returns it's results.
         "displayDataToCanvas": displayDataToCanvas,
         "renderBytes": renderBytes,
         "render": render,
@@ -1969,26 +2372,38 @@ var AnsiLove = (function () {
 
 (function () {
     "use strict";
+    // If this script is executed as part of a Web Worker thread, attach methods to <self> to provide hooks for a web worker instance.
     if (self.WorkerLocation) {
         self.onmessage = function (evt) {
+            // If raw bytes have been supplied.
             if (evt.data.bytes) {
-                if (evt.data.split > 0) {
+                if (evt.data.split > 0) { // If the imagedata is to be split.
+                    // Web worker function for splitRenderBytes.
                     AnsiLove.splitRenderBytes(evt.data.bytes, function (imagedata, sauce) {
+                        // Return the raw-data, returned by the display() function, and a sauce record.
                         self.postMessage({"splitimagedata": imagedata, "sauce": sauce});
+                        // Pass the various options from the web worker invocation, setting the <imagedata> setting on.
                     }, evt.data.split, {"imagedata": 1, "font": evt.data.font, "bits": evt.data.bits, "icecolors": evt.data.icecolors, "columns": evt.data.columns, "thumbnail": evt.data.thumbnail, "filetype": evt.data.filetype});
-                } else {
+                } else { // For just a single image.
+                    // Web worker function for renderBytes.
                     AnsiLove.renderBytes(evt.data.bytes, function (imagedata, sauce) {
+                        // Return the raw-data, returned by the display() function, and a sauce record.
                         self.postMessage({"imagedata": imagedata, "sauce": sauce});
+                        // Pass the various options from the web worker invocation, setting the <imagedata> setting on.
                     }, {"imagedata": 1, "font": evt.data.font, "bits": evt.data.bits, "icecolors": evt.data.icecolors, "columns": evt.data.columns, "thumbnail": evt.data.thumbnail, "filetype": evt.data.filetype});
                 }
-            } else {
-                if (evt.data.split > 0) {
+            } else { // If a url has been supplied.
+                if (evt.data.split > 0) { // If the imagedata is to be split.
                     AnsiLove.splitRender(evt.data.url, function (imagedata, sauce) {
+                        // Return the raw-data, returned by the display() function, and a sauce record.
                         self.postMessage({"splitimagedata": imagedata, "sauce": sauce});
+                        // Pass the various options from the web worker invocation, setting the <imagedata> setting on.
                     }, evt.data.split, {"imagedata": 1, "font": evt.data.font, "bits": evt.data.bits, "icecolors": evt.data.icecolors, "columns": evt.data.columns, "thumbnail": evt.data.thumbnail, "filetype": evt.data.filetype});
-                } else {
+                } else { // For just a single image.
                     AnsiLove.render(evt.data.url, function (imagedata, sauce) {
+                        // Return the raw-data, returned by the display() function, and a sauce record.
                         self.postMessage({"imagedata": imagedata, "sauce": sauce});
+                        // Pass the various options from the web worker invocation, setting the <imagedata> setting on.
                     }, {"imagedata": 1, "font": evt.data.font, "bits": evt.data.bits, "icecolors": evt.data.icecolors, "columns": evt.data.columns, "thumbnail": evt.data.thumbnail, "filetype": evt.data.filetype});
                 }
             }
