@@ -66,7 +66,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     httpGetJson("tubes.json", function (tubes) {
-        var i, divTubeLinks, divPreview, paragraph, retina;
+        var i, divTubeLinks, divPreview, paragraph, spanTitle, spanCredit, retina;
         i = 0;
         divTubeLinks = document.getElementsByClassName("tube-link");
         retina = window.devicePixelRatio > 1;
@@ -84,9 +84,15 @@ document.addEventListener("DOMContentLoaded", function () {
                 divPreview.style.height = "104px";
                 divPreview.style.margin = "10px";
                 paragraph = document.createElement("p");
+                spanTitle = document.createElement("span");
+                spanTitle.textContent = tubes[i].url.split("/").pop();
+                spanCredit = document.createElement("span");
+                spanCredit.textContent = "by " + tubes[i].author;
+                paragraph.appendChild(spanTitle);
+                paragraph.appendChild(document.createElement("br"));
+                paragraph.appendChild(spanCredit);
                 divTubeLinks[i].appendChild(divPreview);
                 divTubeLinks[i].appendChild(paragraph);
-                paragraph.innerText = tubes[i].url.split("/").pop() + "\nby " + tubes[i].author;
                 divTubeLinks[i].onclick = playTube(tubes[i].url, tubes[i].baudrate, tubes[i].settings);
                 ++i;
                 next();
