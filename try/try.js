@@ -1,8 +1,22 @@
 document.addEventListener("DOMContentLoaded", function () {
     "use strict";
-    var files;
+    var files, retinaOnChrome;
 
     files = [];
+    retinaOnChrome = window.devicePixelRatio > 1 && navigator.userAgent.indexOf("Chrome") !== -1;
+
+    function doubleScale(canvas) {
+        var scaledCanvas, ctx;
+        scaledCanvas = document.createElement("canvas");
+        scaledCanvas.width = canvas.width * 2;
+        scaledCanvas.height = canvas.height * 2;
+        ctx = scaledCanvas.getContext("2d");
+        ctx.webkitImageSmoothingEnabled = false;
+        ctx.drawImage(canvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
+        scaledCanvas.style.width = canvas.width + "px";
+        scaledCanvas.style.height = canvas.height + "px";
+        return scaledCanvas;
+    }
 
     document.getElementById("file-drop").addEventListener('dragover', function (evt) {
         evt.stopPropagation();
@@ -60,7 +74,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     document.getElementById("file-drop").addEventListener('drop', function (evt) {
-        var i, p, span, removeAnchor;
+        var i, p, span, removeAnchor, removeAnchorContainer;
         evt.stopPropagation();
         evt.preventDefault();
         for (i = 0; i < evt.dataTransfer.files.length; ++i) {
@@ -68,11 +82,13 @@ document.addEventListener("DOMContentLoaded", function () {
             span.textContent = evt.dataTransfer.files[i].name;
             removeAnchor = document.createElement("a");
             removeAnchor.href = "#";
-            removeAnchor.textContent = "X";
+            removeAnchor.textContent = "Remove";
             removeAnchor.className = "remove-link";
+            removeAnchorContainer = document.createElement("div");
             p = document.createElement("p");
             p.appendChild(span);
-            p.appendChild(removeAnchor);
+            removeAnchorContainer.appendChild(removeAnchor);
+            p.appendChild(removeAnchorContainer);
             document.getElementById("filenames").appendChild(p);
             removeAnchor.onclick = removeFile(evt.dataTransfer.files[i].name, p);
             files.push(evt.dataTransfer.files[i]);
@@ -100,8 +116,8 @@ document.addEventListener("DOMContentLoaded", function () {
             divPreviewContainer = document.getElementById("preview-container");
             divPreviewOverlay = document.getElementById("preview-overlay");
             clearElement(divPreviewContainer);
-            divPreviewContainer.appendChild(canvas);
             divPreviewContainer.style.width = canvas.width + "px";
+            divPreviewContainer.appendChild(retinaOnChrome ? doubleScale(canvas) : canvas);
             divPreviewOverlay.scrollTop = 0;
             divPreviewOverlay.scrollLeft = 0;
             divPreviewOverlay.style.visibility = "visible";
@@ -122,9 +138,10 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function addImageToList(canvas, name) {
-        var imageAnchor, previewAnchor, removeAnchor, paragraph;
+        var imageAnchor, previewAnchor, removeAnchorContainer, removeAnchor, paragraph;
         if (canvas !== undefined) {
             imageAnchor = document.createElement("a");
+            imageAnchor.className = "image-link";
             imageAnchor.href = canvas.toDataURL("image/png");
             name = name + "_" + canvas.width + "x" + canvas.height + ".png";
             imageAnchor.download = name;
@@ -136,12 +153,15 @@ document.addEventListener("DOMContentLoaded", function () {
             previewAnchor.onclick = previewImage(canvas);
             removeAnchor = document.createElement("a");
             removeAnchor.href = "#";
-            removeAnchor.textContent = "X";
+            removeAnchor.textContent = "Remove";
             removeAnchor.className = "remove-link";
+            removeAnchorContainer = document.createElement("div");
+            removeAnchorContainer.appendChild(removeAnchor);
             paragraph = document.createElement("p");
+            paragraph.className = "image-item";
             paragraph.appendChild(imageAnchor);
             paragraph.appendChild(previewAnchor);
-            paragraph.appendChild(removeAnchor);
+            paragraph.appendChild(removeAnchorContainer);
             document.getElementById("output").appendChild(paragraph);
             removeAnchor.onclick = removeLink(paragraph);
             document.getElementById("clear-output").style.display = "block";

@@ -52,16 +52,21 @@ label {
 
 #filenames {
     font-size: 15px;
-    text-align: center;
     width: 480px;
     margin: 4px auto;
 }
 
 #filenames p {
+    text-align: left;
     margin: 2px;
-    padding: 2px;
-    background-color: #444;
+    padding: 4px;
+    background-color: #333;
     word-wrap: break-word;
+}
+
+#filenames p div {
+    float: right;
+    margin-right: 4px;
 }
 
 #clear-filenames, #clear-output {
@@ -97,6 +102,25 @@ label {
     margin: 8px 0px;
 }
 
+#image-container p.image-item {
+    background-color: #333;
+    margin: 2px;
+    padding: 4px;
+}
+
+a.image-link {
+    color: white;
+}
+
+#image-container p.image-item div {
+    float: right;
+    margin-right: 4px;
+}
+
+#image-container p.image-item {
+    text-align: left;
+}
+
 .overlay {
     position: fixed;
     background-color: rgba(0, 0, 0, 0.8);
@@ -129,7 +153,9 @@ label {
 }
 
 .remove-link {
-    color: #BB0000;
+    background-color: black;
+    color: #990000;
+    padding: 2px 8px;
     text-decoration: none;
     margin-left: 6px;
 }

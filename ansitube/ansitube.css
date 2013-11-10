@@ -48,16 +48,21 @@ label {
 
 #filenames {
     font-size: 15px;
-    text-align: center;
     width: 480px;
     margin: 4px auto;
 }
 
 #filenames p {
+    text-align: left;
     margin: 2px;
-    padding: 2px;
-    background-color: #444;
+    padding: 4px;
+    background-color: #333;
     word-wrap: break-word;
+}
+
+#filenames p div {
+    float: right;
+    margin-right: 4px;
 }
 
 #clear-filenames {
@@ -88,7 +93,9 @@ label {
 }
 
 .remove-link {
-    color: #BB0000;
+    background-color: black;
+    color: #990000;
+    padding: 2px 8px;
     text-decoration: none;
     margin-left: 6px;
 }

@@ -146,7 +146,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     document.getElementById("file-drop").addEventListener("drop", function (evt) {
-        var i, p, span, removeAnchor;
+        var i, p, span, removeAnchor, removeAnchorContainer;;
         evt.stopPropagation();
         evt.preventDefault();
         for (i = 0; i < evt.dataTransfer.files.length; ++i) {
@@ -154,11 +154,13 @@ document.addEventListener("DOMContentLoaded", function () {
             span.textContent = evt.dataTransfer.files[i].name;
             removeAnchor = document.createElement("a");
             removeAnchor.href = "#";
-            removeAnchor.textContent = "X";
+            removeAnchor.textContent = "Remove";
             removeAnchor.className = "remove-link";
+            removeAnchorContainer = document.createElement("div");
             p = document.createElement("p");
             p.appendChild(span);
-            p.appendChild(removeAnchor);
+            removeAnchorContainer.appendChild(removeAnchor);
+            p.appendChild(removeAnchorContainer);
             document.getElementById("filenames").appendChild(p);
             removeAnchor.onclick = removeFile(files.length, p);
             files.push(evt.dataTransfer.files[i]);
