@@ -376,13 +376,15 @@ var AnsiLove = (function () {
         fontBitsBuffer = {};
 
         // Returns properties that describe a font's size, and functions which return RGBA arrays, which are to be inserted in an entire RGBA image. Accepts <bits> an array of boolean values which describe a 1-bit image of a font, all 256 characters, as well as the <width> and <height> of each glyph, and a boolean, <amigaFont>, which if set to true is used when drawing a glyph in bold type.
-        function font(bits, width, height, amigaFont) {
+        function font(bits, width, height, amigaFont, options) {
             // <fontBitWidth> is the size of each glyph, in amount of bits, <fontBuffer> is used to buffer RGBA images of each glyph. <fontBuffer24Bit> is used on a case-by-case basis when rendering a glyph in the get24BitData() function.
-            var fontBitWidth, fontBuffer, fontBuffer24Bit;
+            var fontBitWidth, fontBuffer, fontBuffer24Bit, excludeNinthBit;
             fontBitWidth = width * height;
             fontBuffer = [];
+            // Set <excludeNinthBit> to true, if we need to ignore the ninth bit of a font.
+            excludeNinthBit = (width === 9) && (options.bits !== "9");
             // RGBA data, requires Red, Green, Blue, and Alpha values for each 'bit' in the 1-bit image data, <bits>.
-            fontBuffer24Bit = new Uint8Array(fontBitWidth * 4);
+            fontBuffer24Bit = new Uint8Array((excludeNinthBit ? width - 1 : width) * height * 4);
 
             // Accepts a character code <charCode>, e.g. 65 = A, with an array of RGBA values, <palette>, and a foreground, <fg>, and background, <bg>, value which points at an element in the array.
             function getData(charCode, palette, fg, bg) {
@@ -392,18 +394,22 @@ var AnsiLove = (function () {
                 // If we haven't already drawn this glyph before...
                 if (!fontBuffer[bufferIndex]) {
                     // ... create a new one.
-                    fontBuffer[bufferIndex] = new Uint8Array(width * height * 4);
+                    fontBuffer[bufferIndex] = new Uint8Array((excludeNinthBit ? width - 1 : width) * height * 4);
                     // Works through each bit in <bits> at the point where our <charCode> starts, and copy <fg> where the bit is set, and <bg> where it is not.
-                    for (i = 0, j = charCode * fontBitWidth, k = 0; i < fontBitWidth; ++i, ++j, k += 4) {
-                        if (bits[j]) {
-                            fontBuffer[bufferIndex].set(palette[fg], k);
-                        } else {
-                            // In case that this is an <amigaFont>, and the foreground colour <fg> is set to bold type, i.e. 8 to 15, make sure we 'double-width' the glyph.
-                            if (amigaFont && (fg > 7) && (i > 0) && bits[j - 1]) {
+                    for (i = 0, j = charCode * fontBitWidth, k = 0; i < fontBitWidth; ++i, ++j) {
+                        // Ignore the ninth bit, if <excludeNinthBit> is set.
+                        if (!excludeNinthBit || (i + 1) % 9 !== 0) {
+                            if (bits[j]) {
                                 fontBuffer[bufferIndex].set(palette[fg], k);
                             } else {
-                                fontBuffer[bufferIndex].set(palette[bg], k);
+                                // In case that this is an <amigaFont>, and the foreground colour <fg> is set to bold type, i.e. 8 to 15, make sure we 'double-width' the glyph.
+                                if (amigaFont && (fg > 7) && (i > 0) && bits[j - 1]) {
+                                    fontBuffer[bufferIndex].set(palette[fg], k);
+                                } else {
+                                    fontBuffer[bufferIndex].set(palette[bg], k);
+                                }
                             }
+                            k += 4;
                         }
                     }
                 }
@@ -414,11 +420,15 @@ var AnsiLove = (function () {
             // Same as getData(), but accepts only a <fg> (foreground) and <bg> (background) arrays as RGBA data. Returns, as with getData(), raw RGBA data which describes the glyph's image.
             function get24BitData(charCode, fg, bg) {
                 var i, j, k;
-                for (i = 0, j = charCode * fontBitWidth, k = 0; i < fontBitWidth; ++i, ++j, k += 4) {
-                    if (bits[j]) {
-                        fontBuffer24Bit.set(fg, k);
-                    } else {
-                        fontBuffer24Bit.set(bg, k);
+                for (i = 0, j = charCode * fontBitWidth, k = 0; i < fontBitWidth; ++i, ++j) {
+                    // Ignore the ninth bit, if <excludeNinthBit> is set.
+                    if (!excludeNinthBit || (i + 1) % 9 !== 0) {
+                        if (bits[j]) {
+                            fontBuffer24Bit.set(fg, k);
+                        } else {
+                            fontBuffer24Bit.set(bg, k);
+                        }
+                        k += 4;
                     }
                 }
                 return fontBuffer24Bit;
@@ -429,7 +439,7 @@ var AnsiLove = (function () {
                 "getData": getData,
                 "get24BitData": get24BitData,
                 "height": height,
-                "width" : width
+                "width" : excludeNinthBit ? 8 : width
             };
         }
 
@@ -466,7 +476,7 @@ var AnsiLove = (function () {
         }
 
         // Returns a font object returned by <font> based on the data held in FONT_PRESETS using the key <name>. When the preset is called initially, the 1-bit image data returned by bytesToBits() is buffered in <fontBitsBuffer>, referenced by the key <name>, which may save some cpu cycles when the function is called again. Assumes <name> absolutely exists in FONT_PRESETS, and any error checking is handled by calling has() previously.
-        function preset(name) {
+        function preset(name, options) {
             // Aliases for various keys, used to preserve compatibility with url schemes.
             switch (name) {
             case "amiga":
@@ -488,17 +498,17 @@ var AnsiLove = (function () {
                 fontBitsBuffer[name] = bytesToBits(base64ToFile(FONT_PRESETS[name].data), FONT_PRESETS[name].width, FONT_PRESETS[name].height);
             }
             // Return our font object based on the buffered array by calling font() with all the data held in FONT_PRESETS.
-            return font(fontBitsBuffer[name], FONT_PRESETS[name].width, FONT_PRESETS[name].height, FONT_PRESETS[name].amigaFont);
+            return font(fontBitsBuffer[name], FONT_PRESETS[name].width, FONT_PRESETS[name].height, FONT_PRESETS[name].amigaFont, options);
         }
 
         // Returns a font object by reading <file>, assuming a predefined glyph height, <fontHeight>. This is a predefined function to handle font data held in xbin files.
-        function xbin(file, fontHeight) {
-            return font(bytesToBits(file, 8, fontHeight), 8, fontHeight, false);
+        function xbin(file, fontHeight, options) {
+            return font(bytesToBits(file, 8, fontHeight), 8, fontHeight, false, options);
         }
 
         // A generic function, leveraged by various parsers to read font data of a standard 8x16 size, to be read from <file>, and returns a font object.
-        function font8x16x256(file) {
-            return font(bytesToBits(file, 8, 16), 8, 16, false);
+        function font8x16x256(file, options) {
+            return font(bytesToBits(file, 8, 16), 8, 16, false, options);
         }
 
         // A simple function, which returns true or false depending on whether <name> is a key name in FONT_PRESETS, so that a call to preset will return valid data.
@@ -632,25 +642,18 @@ var AnsiLove = (function () {
     }
 
     // Receives a <raw> object returned from the image-parsing functions found in Parser, and outputs a Uint8Array with RGBA data, <rgbaData>, with dimensions <width> and <height>. <start> and <length> point to offsets in <raw.imageData>, so that only part of the image can be rendered. <altFont> is a font object, returned by font() to be used when rendering the image (assuming no font information is held in raw.font), and <options>, which are passed by the user.
-    function display(raw, start, length, altFont, options) {
-        var canvasWidth, canvasHeight, rgbaData, font, end, i, k, l, x, fontBitWidth, fontDisplayWidth, displayFontBitWidth, fontData, rowOffset, screenOffset, fontOffset, chunky;
+    function display(raw, start, length, options) {
+        var canvasWidth, canvasHeight, rgbaData, end, i, k, l, x, fontBitWidth, fontData, rowOffset, screenOffset, fontOffset, chunky;
 
-        // Either use the font data returned by the parser, and if that isn't available, the font data passed by readBytes(), which will be either the font paramater passed by the user, or the default 80x25.
-        font = raw.font || altFont;
-
-        // If we're using a font with a ninth-bit, and the 9-bit option is set, store the <fontDisplayWidth> as 9, otherwise use the font's default value (or 8 for 9-bit fonts).
-        fontDisplayWidth = (font.width === 9 && (options.bits !== "9" || options.thumbnail)) ? 8 : font.width;
-
-        // Temporary variables to pre-calculate some data.
-        fontBitWidth = font.width * 4;
-        displayFontBitWidth = fontDisplayWidth * 4;
+        // Temporary variable to pre-calculate some data.
+        fontBitWidth = raw.font.width * 4;
 
         // Define where to stop reading data.
         end = Math.min(start + length, raw.imageData.length);
 
         // Calculate the dimensions of the output image.
-        canvasWidth = raw.width * fontDisplayWidth;
-        canvasHeight = (end - start) / raw.rowLength * font.height;
+        canvasWidth = raw.width * raw.font.width;
+        canvasHeight = (end - start) / raw.rowLength * raw.font.height;
 
         // Initialize the RGBA image data and calculate how many bytes are in each text-row.
         rgbaData = new Uint8Array(canvasWidth * canvasHeight * 4);
@@ -658,26 +661,26 @@ var AnsiLove = (function () {
 
         // If the image has palette data...
         if (raw.palette) {
-            for (i = start, screenOffset = 0, x = 0; i < end; i += 2, screenOffset += displayFontBitWidth) {
+            for (i = start, screenOffset = 0, x = 0; i < end; i += 2, screenOffset += fontBitWidth) {
                 // ... retrieve the font image data by calling getData() in Font, and inserting the Uint8Array data at the required position in the RGBA data.
-                fontData = font.getData(raw.imageData[i], raw.palette, raw.imageData[i + 1] & 15, raw.imageData[i + 1] >> 4);
-                for (fontOffset = screenOffset, k = l = 0; k < font.height; ++k, fontOffset += rowOffset, l += fontBitWidth) {
-                    rgbaData.set(fontData.subarray(l, l + displayFontBitWidth), fontOffset);
+                fontData = raw.font.getData(raw.imageData[i], raw.palette, raw.imageData[i + 1] & 15, raw.imageData[i + 1] >> 4);
+                for (fontOffset = screenOffset, k = l = 0; k < raw.font.height; ++k, fontOffset += rowOffset, l += fontBitWidth) {
+                    rgbaData.set(fontData.subarray(l, l + fontBitWidth), fontOffset);
                 }
                 if (++x % raw.width === 0) {
-                    screenOffset += (font.height - 1) * rowOffset;
+                    screenOffset += (raw.font.height - 1) * rowOffset;
                 }
             }
         } else {
             // If the image stores 24-bit data...
-            for (i = start, screenOffset = 0, x = 0; i < end; i += 9, screenOffset += displayFontBitWidth) {
+            for (i = start, screenOffset = 0, x = 0; i < end; i += 9, screenOffset += fontBitWidth) {
                 // ... retrieve the font image data by calling get24BitData() in Font, and inserting the Uint8Array data at the required position in the RGBA data.
-                fontData = font.get24BitData(raw.imageData[i], raw.imageData.subarray(i + 1, i + 5), raw.imageData.subarray(i + 5, i + 9));
-                for (fontOffset = screenOffset, k = l = 0; k < font.height; ++k, fontOffset += rowOffset, l += fontBitWidth) {
-                    rgbaData.set(fontData.subarray(l, l + displayFontBitWidth), fontOffset);
+                fontData = raw.font.get24BitData(raw.imageData[i], raw.imageData.subarray(i + 1, i + 5), raw.imageData.subarray(i + 5, i + 9));
+                for (fontOffset = screenOffset, k = l = 0; k < raw.font.height; ++k, fontOffset += rowOffset, l += fontBitWidth) {
+                    rgbaData.set(fontData.subarray(l, l + fontBitWidth), fontOffset);
                 }
                 if (++x % raw.width === 0) {
-                    screenOffset += (font.height - 1) * rowOffset;
+                    screenOffset += (raw.font.height - 1) * rowOffset;
                 }
             }
         }
@@ -716,6 +719,43 @@ var AnsiLove = (function () {
         return canvas;
     }
 
+    // Returns an options object which has been validated to make sure all the arguments are legal, and sets defaults where missing.
+    function validateOptions(options) {
+        var validatedOptions;
+
+        // Create the options object, if undefined.
+        options = options || {};
+        validatedOptions = {};
+        // "icecolors", must be a number, 0 or 1. Defaults to 0.
+        validatedOptions.icecolors = ((typeof options.icecolors === "number") && options.icecolors >= 0 && options.icecolors <= 1) ? options.icecolors : 0;
+        // "bits", must be "8", "9", "ced", or "workbench". Defaults to "8".
+        switch (options.bits) {
+        case "8":
+        case "9":
+        case "ced":
+        case "workbench":
+            validatedOptions.bits = options.bits;
+            break;
+        default:
+            validatedOptions.bits = "8";
+        }
+        // "columns" setting, must be a number greater than 0. Defaults to 160.
+        validatedOptions.columns = ((typeof options.columns === "number") && options.columns > 0) ? options.columns : 160;
+        // "font" setting, must be a string, and be in the list of available presets. Defaults to "80x25".
+        validatedOptions.font = ((typeof options.font === "string") && Font.has(options.font)) ? options.font : "80x25";
+        // "thumnail", must be a number between and including 0 to 3. Defaults to 0.
+        validatedOptions.thumbnail = ((typeof options.thumbnail === "number") && options.thumbnail >= 0 && options.thumbnail <= 3) ? options.thumbnail : 0;
+        // "imagedata", must be 0 or 1. Defaults to 0.
+        validatedOptions.imagedata = ((typeof options.imagedata === "number") && options.imagedata >= 0 && options.imagedata <= 1) ? options.imagedata : 0;
+        // "rows", must be a number greater than 0. Defaults to 26.
+        validatedOptions.rows = ((typeof options.rows === "number") && options.rows > 0) ? options.rows : 26;
+        // "2J", must be a number 0 or 1. Defaults to 1.
+        validatedOptions["2J"] = ((typeof options["2J"] === "number") && options["2J"] >= 0 && options["2J"] <= 1) ? options["2J"] : 1;
+        // "filetype", can be any string, since readBytes() defaults to the ANSI renderer if it is unrecognised.
+        validatedOptions.filetype = (typeof options.filetype === "string") ? options.filetype : "ans";
+
+        return validatedOptions;
+    }
     // Collects all the functions which parse the supported image formats, with a single entrypoint, readBytes.
     Parser = (function () {
         // ScreenData() returns a representation of the screen with <width> columns. This is used for images with a predefined palette. i.e. all formats except Tundra.
@@ -843,7 +883,7 @@ var AnsiLove = (function () {
         }
 
         // A function to parse a sequence of bytes representing an Artworx file format.
-        function adf(bytes) {
+        function adf(bytes, options) {
             var file, palette, font, imageData;
 
             // Turn bytes into a File object.
@@ -855,7 +895,7 @@ var AnsiLove = (function () {
             // Read Palette. See Palette.adf().
             palette = Palette.adf(file);
             // Read Font. See Font.font8x16x256().
-            font = Font.font8x16x256(file);
+            font = Font.font8x16x256(file, options);
             // Raw Imagedata.
             imageData = file.read();
 
@@ -1095,6 +1135,7 @@ var AnsiLove = (function () {
 
             // Returns an object usable by display() to convert into an RGBA array.
             return {
+                "font": Font.preset(options.font, options),
                 "imageData": imageData.getData(),
                 "rowLength": imageData.rowLength, // size of each row in bytes.
                 "palette": palette,
@@ -1105,7 +1146,7 @@ var AnsiLove = (function () {
         }
 
         // A function to parse a sequence of bytes representing an ASCII plain-text file.
-        function asc(bytes) {
+        function asc(bytes, options) {
             var file, imageData, code, x, y;
 
             // Create a new <file> object, based on <bytes>, and create an <imageData> representation of the screen.
@@ -1140,6 +1181,7 @@ var AnsiLove = (function () {
 
             // Returns an object usable by display() to convert into an RGBA array.
             return {
+                "font": Font.preset(options.font, options),
                 "imageData": imageData.getData(),
                 "palette": Palette.ASC_PC,
                 "width": 80,
@@ -1173,6 +1215,7 @@ var AnsiLove = (function () {
 
             // Returns an object usable by display() to convert into an RGBA array.
             return {
+                "font": Font.preset(options.font, options),
                 "height": Math.round(imageData.length / 2 / options.columns),
                 "imageData": imageData,
                 "palette": Palette.BIN,
@@ -1183,7 +1226,7 @@ var AnsiLove = (function () {
         }
 
         // A function to parse a sequence of bytes representing an iCE Draw file format.
-        function idf(bytes) {
+        function idf(bytes, options) {
             var file, columns, palette, font, imageData, c, loop, ch, attr;
 
             // Convert the bytes to a File() object.
@@ -1214,7 +1257,7 @@ var AnsiLove = (function () {
             }
 
             // Decode the font and palette data.
-            font = Font.font8x16x256(file);
+            font = Font.font8x16x256(file, options);
             palette = Palette.triplets16(file);
 
             return {
@@ -1314,6 +1357,7 @@ var AnsiLove = (function () {
             }
 
             return {
+                "font": Font.preset(options.font, options),
                 "height": imageData.getHeight(),
                 "imageData": imageData.getData(),
                 "palette": Palette.BIN,
@@ -1324,7 +1368,7 @@ var AnsiLove = (function () {
         }
 
         // A function to parse a sequence of bytes representing a Tundra file format.
-        function tnd(bytes) {
+        function tnd(bytes, options) {
             var file, x, y, imageData, charCode, fg, bg;
 
             // Routine to retrieve a 32-bit unsigned integer from a <file object>
@@ -1397,6 +1441,7 @@ var AnsiLove = (function () {
             }
 
             return {
+                "font": Font.preset(options.font, options),
                 "height": imageData.getHeight(),
                 "imageData": imageData.getData(),
                 "palette": undefined, // Set to undefined, as the palette information is in the <imageData> object.
@@ -1407,7 +1452,7 @@ var AnsiLove = (function () {
         }
 
         // A function to parse a sequence of bytes representing an XBiN file format.
-        function xb(bytes) {
+        function xb(bytes, options) {
             var file, header, palette, font, imageData;
 
             // This function is called to parse the XBin header.
@@ -1497,7 +1542,7 @@ var AnsiLove = (function () {
             // If palette information is included, read it immediately after the header, if not, use the default palette used for BIN files.
             palette = header.palette ? Palette.triplets16(file) : Palette.BIN;
             // If font information is included, read it, if not, use the default 80x25 font.
-            font = header.font ? Font.xbin(file, header.fontHeight) : Font.preset("80x25");
+            font = header.font ? Font.xbin(file, header.fontHeight, options) : Font.preset("80x25", options);
             // Fetch the image data, and uncompress if necessary.
             imageData = header.compressed ? uncompress(file, header.width, header.height) : file.read(header.width * header.height * 2);
 
@@ -1538,34 +1583,10 @@ var AnsiLove = (function () {
 
         // Parses an array of <bytes>, which represent a file, and calls <callback> when the image has been generated successfully, <splitRows> is set to a value greater than 0 if the image is to be split over multiple images, defined by an amount of rows. And <options> is key-pair list of options supplied by the user.
         function readBytes(bytes, callback, splitRows, options) {
-            var data, font, returnArray, start, splitLength, displayData;
+            var data, returnArray, start, splitLength, displayData;
 
-            // Do a sanity check for "icecolors", to see if it is valid.
-            options.icecolors = (options.icecolors >= 0 && options.icecolors <= 1) ? options.icecolors : 0;
-            // Do a sanity check for "bits", to see if it is valid.
-            switch (options.bits) {
-            case "9":
-            case "ced":
-            case "workbench":
-                break;
-            default:
-                options.bits = "8";
-            }
-            // Do a sanity check for "columns", to see if it is valid.
-            options.columns = (options.columns > 0) ? options.columns : 160;
-            // Do a sanity check for "font", to see if it is valid.
-            options.font = Font.has(options.font) ? options.font : "80x25";
-            // Do a sanity check for "thumbnail", to see if it is valid.            
-            switch (options.thumbnail) {
-            case 1:
-            case 2:
-            case 3:
-                break;
-            default:
-                options.thumbnail = 0;
-            }
-            // Do a sanity check for "imagedata", to see if it is valid.
-            options.imagedata = (options.imagedata >= 0 && options.imagedata <= 1) ? options.imagedata : 0;
+            // Validate the options given by the user.
+            options = validateOptions(options);
 
             // Choose which parser to use, based on the setting defined in <options.filetype>.
             switch (options.filetype) {
@@ -1573,46 +1594,40 @@ var AnsiLove = (function () {
             case "nfo":
             case "asc":
                 // For plain-text files, use the ascii parser, and use the default, or user-defined font.
-                data = asc(bytes);
-                font = Font.preset(options.font);
+                data = asc(bytes, options);
                 break;
             case "diz":
             case "ion":
                 // For diz files, use the ascii parser, and use the default, or user-defined font. Also, trim the extra columns.
-                data = trimColumns(asc(bytes));
-                font = Font.preset(options.font);
+                data = trimColumns(asc(bytes, options));
                 break;
             case "adf":
                 // For Artworx files, use the adf parser. Font is already defined in the file.
-                data = adf(bytes);
+                data = adf(bytes, options);
                 break;
             case "bin":
                 // For raw-dump files, use the bin parser, and use the default, or user-defined font.
                 data = bin(bytes, options);
-                font = Font.preset(options.font);
                 break;
             case "idf":
                 // For iCE draw files, use the idf parser. Font is already defined in the file.
-                data = idf(bytes);
+                data = idf(bytes, options);
                 break;
             case "pcb":
                 // For PCBoard files, use the pcb parser, and use the default, or user-defined font.
                 data = pcb(bytes, options);
-                font = Font.preset(options.font);
                 break;
             case "tnd":
                 // For Tundra files, use the tnd parser, and use the default, or user-defined font.
-                data = tnd(bytes);
-                font = Font.preset(options.font);
+                data = tnd(bytes, options);
                 break;
             case "xb":
                 // For XBin files, use the xb parser. Font is already set in the parser.
-                data = xb(bytes);
+                data = xb(bytes, options);
                 break;
             default:
                 // For unrecognised filetypes, use the ANSI parser.
                 data = ans(bytes, options);
-                font = Font.preset(options.font);
             }
 
             // If the splitRows value is set..
@@ -1622,7 +1637,7 @@ var AnsiLove = (function () {
                 splitLength = data.rowLength * splitRows;
                 for (start = 0; start < data.imageData.length; start += splitLength) {
                     // Call display with each "chunk" of data.
-                    displayData = display(data, start, splitLength, font, options);
+                    displayData = display(data, start, splitLength, options);
                     // Push the either raw image data or a canvas of each image into the array, according to the <options.imagedata> setting...
                     returnArray.push(options.imagedata ? displayData : displayDataToCanvas(displayData));
                 }
@@ -1630,7 +1645,7 @@ var AnsiLove = (function () {
                 callback(returnArray, data.sauce);
             } else {
                 // For a single image, send the data to display()...
-                displayData = display(data, 0, data.imageData.length, font, options);
+                displayData = display(data, 0, data.imageData.length, options);
                 // ... and call callback() with either the raw data, or a canvas element, depending on the <options.imagedata> setting. 
                 callback(options.imagedata ? displayData : displayDataToCanvas(displayData), data.sauce);
             }
@@ -1647,7 +1662,7 @@ var AnsiLove = (function () {
         // Catch any errors.
         try {
             // call readBytes(), with 0 as the splitRows option, and create an empty object if options, is missing.
-            Parser.readBytes(bytes, callback, 0, options || {});
+            Parser.readBytes(bytes, callback, 0, options);
         } catch (e) {
             if (callbackFail) {
                 // If an error is caught, call callbackFail()...
@@ -1680,7 +1695,7 @@ var AnsiLove = (function () {
         // Catch any errors.
         try {
             // call readBytes(), with 27 as the default splitRows option, and create an empty object if options, is missing.
-            Parser.readBytes(bytes, callback, splitRows || 27, options || {});
+            Parser.readBytes(bytes, callback, splitRows || 27, options);
         } catch (e) {
             if (callbackFail) {
                 // If an error is caught, call callbackFail()...
@@ -1710,19 +1725,14 @@ var AnsiLove = (function () {
 
     // Receives a sequence of <bytes>, representing an ANSI file, with <options> supplied by the user and returns an Ansimation object which can be used to display and control an animation.
     function Ansimation(bytes, options) {
-        var timer, interval, file, font, fontDisplayWidth, icecolors, bits, palette, columns, rows, screenClear, canvas, ctx, blinkCanvas, buffer, bufferCtx, blinkCtx, escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, drawForeground, drawBackground, bold, inverse, blink, fontImageData;
+        var timer, interval, file, font, palette, columns, rows, canvas, ctx, blinkCanvas, buffer, bufferCtx, blinkCtx, escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, drawForeground, drawBackground, bold, inverse, blink, fontImageData;
 
         // Convert bytes to a File() object.
         file = new File(bytes);
-        // Sanity check, and use use <options.icecolors>, if set.
-        icecolors = (options.icecolors === undefined) ? false : (options.icecolors === 1);
-        // Set the "bits" option.
-        bits = options.bits || "8";
-        // Set the "2J" option.
-        screenClear = (options["2J"] === undefined) ? true : (options["2J"] === 1);
 
-        // Choose the right color palette.
-        switch (bits) {
+        options = validateOptions(options);
+
+        switch (options.bits) {
         case "ced":
             palette = Palette.CED;
             break;
@@ -1746,13 +1756,10 @@ var AnsiLove = (function () {
         rows = options.rows || 26;
 
         // Use the <font> set in <options>, if found in presets, otherwise use the default "80x25".
-        font = Font.has(options.font) ? Font.preset(options.font) : Font.preset("80x25");
-
-        // If "bits" isn't set to 9, and this is a 9-bit font, set the <fontDisplayWidth> to 8.
-        fontDisplayWidth = (font.width === 9 && bits !== "9") ? 8 : font.width;
+        font = Font.has(options.font) ? Font.preset(options.font, options) : Font.preset("80x25", options);
 
         // Initialize the canvas used to display the animation, obtain the context, and create the temporary variable <fontImageData> to store the font image-data when rendered.
-        canvas = createCanvas(columns * fontDisplayWidth, rows * font.height);
+        canvas = createCanvas(columns * font.width, rows * font.height);
         ctx = canvas.getContext("2d");
         fontImageData = ctx.createImageData(font.width, font.height);
 
@@ -1784,10 +1791,10 @@ var AnsiLove = (function () {
         // Clear the text characters held on the <blinkCanvas> array, used when a character is drawn which isn't set to blink.
         function clearBlinkChar(charX, charY) {
             var sx, sy;
-            sx = charX * fontDisplayWidth;
+            sx = charX * font.width;
             sy = charY * font.height;
-            blinkCtx[0].clearRect(sx, sy, fontDisplayWidth, font.height);
-            blinkCtx[1].clearRect(sx, sy, fontDisplayWidth, font.height);
+            blinkCtx[0].clearRect(sx, sy, font.width, font.height);
+            blinkCtx[1].clearRect(sx, sy, font.width, font.height);
         }
 
         // Perform a newline operation, if the <y> amount is at the very bottom of the screen, then all canvas elements are shifted up a single line.
@@ -1883,15 +1890,15 @@ var AnsiLove = (function () {
                                     setPos(values[1], values[0]);
                                 }
                                 break;
-                            case "J": // Clear screen, if allowed in <screenClear>
-                                if (screenClear && values[0] === 2) {
+                            case "J": // Clear screen, if allowed in <options["2J"]>
+                                if (options["2J"] && values[0] === 2) {
                                     x = 1;
                                     y = 1;
                                     clearScreen(0, 0, canvas.width, canvas.height);
                                 }
                                 break;
                             case "K": // Clear to the end of line.
-                                clearScreen((x - 1) * fontDisplayWidth, (y - 1) * font.height, canvas.width - (x - 1) * fontDisplayWidth, font.height);
+                                clearScreen((x - 1) * font.width, (y - 1) * font.height, canvas.width - (x - 1) * font.width, font.height);
                                 break;
                             case "m": // Attribute setting codes.
                                 for (j = 0; j < values.length; ++j) {
@@ -1977,23 +1984,23 @@ var AnsiLove = (function () {
                                 drawForeground = foreground;
                                 drawBackground = background;
                             }
-                            // Shift the colours is <bold> is set, observing the current <icecolors> setting.
+                            // Shift the colours is <bold> is set, observing the current <options.icecolors> setting.
                             if (bold) {
                                 drawForeground += 8;
                             }
-                            if (blink && icecolors) {
+                            if (blink && options.icecolors) {
                                 drawBackground += 8;
                             }
                             // Obtain the <fontImageData> by calling font.getData().
                             fontImageData.data.set(font.getData(code, palette, drawForeground, drawBackground), 0);
                             // Draw the image to the canvas.
-                            ctx.putImageData(fontImageData, (x - 1) * fontDisplayWidth, (y - 1) * font.height, 0, 0, fontDisplayWidth, font.height);
-                            if (!icecolors) {
+                            ctx.putImageData(fontImageData, (x - 1) * font.width, (y - 1) * font.height, 0, 0, font.width, font.height);
+                            if (!options.icecolors) {
                                 // Update the blink canvas elements, by drawing both versions of the blinking data to the <blinkCanvas> array, or if <blink> is not set, clear whatever may already be drawn to these elements.
                                 if (blink) {
-                                    blinkCtx[0].putImageData(fontImageData, (x - 1) * fontDisplayWidth, (y - 1) * font.height, 0, 0, fontDisplayWidth, font.height);
+                                    blinkCtx[0].putImageData(fontImageData, (x - 1) * font.width, (y - 1) * font.height, 0, 0, font.width, font.height);
                                     fontImageData.data.set(font.getData(code, palette, drawBackground, drawBackground), 0);
-                                    blinkCtx[1].putImageData(fontImageData, (x - 1) * fontDisplayWidth, (y - 1) * font.height, 0, 0, fontDisplayWidth, font.height);
+                                    blinkCtx[1].putImageData(fontImageData, (x - 1) * font.width, (y - 1) * font.height, 0, 0, font.width, font.height);
                                 } else {
                                     clearBlinkChar(x - 1, y - 1);
                                 }
@@ -2082,7 +2089,7 @@ var AnsiLove = (function () {
     function animateBytes(bytes, callback, options) {
         var ansimation;
         // Create the new ansimation object.
-        ansimation = new Ansimation(bytes, options || {});
+        ansimation = new Ansimation(bytes, options);
         // The reason for the timeout here is to return the controller object before calling <callback>, so that the animation isn't started before the controller is returned. Ideally, the controller should be passed via callback(), but it's implemented this way to achieve parity with the render() and splitRender() methods.
         setTimeout(function () {
             callback(ansimation.canvas, ansimation.sauce);
@@ -2096,7 +2103,7 @@ var AnsiLove = (function () {
         var ansimation;
         // Fetch the data.
         httpGet(url, function (bytes) {
-            ansimation = new Ansimation(bytes, options || {});
+            ansimation = new Ansimation(bytes, options);
             callback(ansimation.canvas, ansimation.sauce);
             // Pass <callbackFail> to httpGet, in case it fails.
         }, callbackFail);
@@ -2322,7 +2329,7 @@ var AnsiLove = (function () {
     // Calls show() in <Popup>, according to the supplied <bytes> and <options>.
     function popupBytes(bytes, options) {
         // Set baud-rate to 0, since this is assumed to be an image.
-        Popup.show(bytes, 0, options || {});
+        Popup.show(bytes, 0, options);
     }
 
     // The <url> version of popupBytes(), which gets the <bytes> from a file from the network first, and calls <callbackFail> when the network fetch fails.
@@ -2342,7 +2349,7 @@ var AnsiLove = (function () {
 
     // The animation version of popupBytes(), this sets the <baud> option, defaults to 14400, so the bytes are assumend to represent an ANSI animation.
     function popupAnimationBytes(bytes, baud, options) {
-        Popup.show(bytes, baud || 14400, options || {});
+        Popup.show(bytes, baud || 14400, options);
     }
 
     // The <url> version of popupAnimationBytes(), fetches the <bytes> from a httpGet() operation.
