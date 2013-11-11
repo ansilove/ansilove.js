@@ -375,6 +375,27 @@ var AnsiLove = (function () {
 
         fontBitsBuffer = {};
 
+        // Receives an RGBA image, <rgbaSource>, and the font width <fontWidth>, and delivers a double-scaled version, suitable for retina-type devices.
+        function doubleScale(rgbaSource, fontWidth) {
+            var byteWidth, doubledByteWidth, rgba, rgbaDoubled, startOfRow, i, k;
+            byteWidth = fontWidth * 4;
+            doubledByteWidth = byteWidth * 2;
+            rgbaDoubled = new Uint8Array(rgbaSource.length * 4);
+            for (i = 0, k = 0; i < rgbaSource.length; i += 4) {
+                rgba = rgbaSource.subarray(i, i + 4);
+                rgbaDoubled.set(rgba, k);
+                k += 4;
+                rgbaDoubled.set(rgba, k);
+                k += 4;
+                if ((i + 4) % byteWidth === 0) {
+                    startOfRow = k - doubledByteWidth;
+                    rgbaDoubled.set(rgbaDoubled.subarray(startOfRow, startOfRow + doubledByteWidth), k);
+                    k += doubledByteWidth;
+                }
+            }
+            return rgbaDoubled;
+        }
+
         // Returns properties that describe a font's size, and functions which return RGBA arrays, which are to be inserted in an entire RGBA image. Accepts <bits> an array of boolean values which describe a 1-bit image of a font, all 256 characters, as well as the <width> and <height> of each glyph, and a boolean, <amigaFont>, which if set to true is used when drawing a glyph in bold type.
         function font(bits, width, height, amigaFont, options) {
             // <fontBitWidth> is the size of each glyph, in amount of bits, <fontBuffer> is used to buffer RGBA images of each glyph. <fontBuffer24Bit> is used on a case-by-case basis when rendering a glyph in the get24BitData() function.
@@ -412,6 +433,9 @@ var AnsiLove = (function () {
                             k += 4;
                         }
                     }
+                    if (options["2x"]) {
+                        fontBuffer[bufferIndex] = doubleScale(fontBuffer[bufferIndex], excludeNinthBit ? width - 1 : width);
+                    }
                 }
                 // Return the buffered RGBA image.
                 return fontBuffer[bufferIndex];
@@ -431,6 +455,9 @@ var AnsiLove = (function () {
                         k += 4;
                     }
                 }
+                if (options["2x"]) {
+                    return doubleScale(fontBuffer24Bit, excludeNinthBit ? width - 1 : width);
+                }
                 return fontBuffer24Bit;
             }
 
@@ -438,8 +465,8 @@ var AnsiLove = (function () {
             return {
                 "getData": getData,
                 "get24BitData": get24BitData,
-                "height": height,
-                "width" : excludeNinthBit ? 8 : width
+                "height": height * (options["2x"] ? 2 : 1),
+                "width" : (excludeNinthBit ? 8 : width) * (options["2x"] ? 2 : 1)
             };
         }
 
@@ -696,7 +723,8 @@ var AnsiLove = (function () {
         return {
             "width": canvasWidth,
             "height": canvasHeight,
-            "rgbaData": rgbaData
+            "rgbaData": rgbaData,
+            "2x": options["2x"]
         };
     }
 
@@ -716,6 +744,11 @@ var AnsiLove = (function () {
         imageData = ctx.createImageData(canvas.width, canvas.height);
         imageData.data.set(displayData.rgbaData, 0);
         ctx.putImageData(imageData, 0, 0);
+        // Deal with pixel ratio for retina-type displays.
+        if (displayData["2x"]) {
+            canvas.style.width = (canvas.width / 2) + "px";
+            canvas.style.height = (canvas.height / 2) + "px";
+        }
         return canvas;
     }
 
@@ -745,6 +778,8 @@ var AnsiLove = (function () {
         validatedOptions.font = ((typeof options.font === "string") && Font.has(options.font)) ? options.font : "80x25";
         // "thumnail", must be a number between and including 0 to 3. Defaults to 0.
         validatedOptions.thumbnail = ((typeof options.thumbnail === "number") && options.thumbnail >= 0 && options.thumbnail <= 3) ? options.thumbnail : 0;
+        // "2x", must be a number, 0 or 1. Defaults to 0.
+        validatedOptions["2x"] = ((typeof options["2x"] === "number") && options["2x"] >= 0 && options["2x"] <= 1) ? options["2x"] : 0;
         // "imagedata", must be 0 or 1. Defaults to 0.
         validatedOptions.imagedata = ((typeof options.imagedata === "number") && options.imagedata >= 0 && options.imagedata <= 1) ? options.imagedata : 0;
         // "rows", must be a number greater than 0. Defaults to 26.
@@ -1760,6 +1795,13 @@ var AnsiLove = (function () {
 
         // Initialize the canvas used to display the animation, obtain the context, and create the temporary variable <fontImageData> to store the font image-data when rendered.
         canvas = createCanvas(columns * font.width, rows * font.height);
+
+        // Deal with pixel ratio for retina-type displays.
+        if (options["2x"]) {
+            canvas.style.width = (canvas.width / 2) + "px";
+            canvas.style.height = (canvas.height / 2) + "px";
+        }
+
         ctx = canvas.getContext("2d");
         fontImageData = ctx.createImageData(font.width, font.height);
 
@@ -2124,33 +2166,14 @@ var AnsiLove = (function () {
         };
     }
 
-    // If this is running in a Web Worker instance, do not initialize Popup, as it provides an in-browser function, and certain parts of it will throw an error in a off-browser thread. i.e. window.devicePixelRatio.
+    // If this is running in a Web Worker instance, do not initialize Popup, as it provides an in-browser function.
     if (!self.WorkerLocation) {
         // Popup collects functions which allows a "pop-up" display to be shown in the browser, instead of calling the various render methods elsewhere.
         Popup = (function () {
-            var STYLE_DEFAULTS, FIREFOX, CHROME, SAFARI, browser, retina;
+            var STYLE_DEFAULTS;
 
             // Defaults used when rewriting the various CSS properties when creating a new element.
             STYLE_DEFAULTS = {"background-color": "transparent", "background-image": "none", "margin": "0", "padding": "0", "border": "0", "font-size": "100%", "font": "inherit", "vertical-align": "baseline", "color": "black", "display": "block", "cursor": "default", "text-align": "left", "text-shadow": "none", "text-transform": "none", "clear": "none", "float": "none", "overflow": "auto", "position": "relative", "visibility": "visible"};
-
-            // Constants used when recording which browser is in use.
-            FIREFOX = 0;
-            CHROME = 1;
-            SAFARI = 2;
-
-            // Set <browser> to whichever browser can be detected.
-            if (navigator.userAgent.indexOf("Firefox") !== -1) {
-                browser = FIREFOX;
-            } else if (navigator.userAgent.indexOf("AppleWebKit") !== -1) {
-                if (navigator.userAgent.indexOf("Chrome") !== -1) {
-                    browser = CHROME;
-                } else {
-                    browser = SAFARI;
-                }
-            }
-
-            // If a "retina"-type display is detected, set <retina> to true.
-            retina = window.devicePixelRatio > 1;
 
             // Works through every element, and discovers the highest z-index recorded. Later used to make sure that elements added to the document are visible.
             function findHighestZIndex() {
@@ -2212,36 +2235,13 @@ var AnsiLove = (function () {
                     }, 750);
                 }
 
-                // Applies styles to a <canvas> element, depending on which <browser> is detected. Makes sure each <canvas> element is displayed vertically without a gap, by setting vertical-align: bottom. "image-rendering" is set to prevent image smoothing on retina type displays.
+                // Applies styles to a <canvas> element, also makes sure each <canvas> element is displayed vertically without a gap, by setting vertical-align: bottom.
                 function processCanvas(canvas) {
-                    if (retina) {
-                        switch (browser) {
-                        case FIREFOX:
-                            canvas.style.imageRendering = "-moz-crisp-edges";
-                            break;
-                        case SAFARI:
-                            canvas.style.imageRendering = "-webkit-optimize-contrast";
-                            break;
-                        }
-                    }
-
                     // Apply default styles.
                     applyStyle(canvas, STYLE_DEFAULTS);
                     canvas.style.verticalAlign = "bottom";
 
                     return canvas;
-                }
-
-                // Creates a new <canvas> element, double scaled, with image smoothing, i.e. nearest neighbour, scaling. This function is used due to the current lack of support for "image-rendering" css property in Chrome.
-                function doubleScale(canvas) {
-                    var scaledCanvas, ctx;
-                    scaledCanvas = createCanvas(canvas.width * 2, canvas.height * 2);
-                    ctx = scaledCanvas.getContext("2d");
-                    ctx.imageSmoothingEnabled = false;
-                    ctx.drawImage(canvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
-                    scaledCanvas.style.width = canvas.width + "px";
-                    scaledCanvas.style.height = canvas.height + "px";
-                    return scaledCanvas;
                 }
 
                 // Displays an error, in the form of an dialog box, with a defined <message>, and dismisses the overlay element.
@@ -2261,8 +2261,8 @@ var AnsiLove = (function () {
                 // If a spinner url is provided in <options>, add it to the backdrop of the overlay element...
                 if (options.spinner) {
                     applyStyle(divOverlay, {"background-image": "url(" + options.spinner + ")", "background-position": "center center", "background-repeat": "no-repeat"});
-                    // ... and scale it down to half-size in css-pixels if a retina-type display has been detected.
-                    if (retina) {
+                    // ... and scale it down to half-size in css-pixels if a retina-type is being used.
+                    if (options["2x"]) {
                         applyStyle(divOverlay, {"background-size": "32px 64px"});
                     }
                 }
@@ -2283,7 +2283,11 @@ var AnsiLove = (function () {
                     if (baud > 0) {
                         controller = animateBytes(bytes, function (canvas) {
                             // Set the container's width based on the width of the canvas element, and display the canvas.
-                            divCanvasContainer.style.width = canvas.width + "px";
+                            if (options["2x"]) {
+                                divCanvasContainer.style.width = (canvas.width / 2) + "px";
+                            } else {
+                                divCanvasContainer.style.width = canvas.width + "px";
+                            }
                             divCanvasContainer.appendChild(processCanvas(canvas));
                             // Slide up the container.
                             slideUpContainer();
@@ -2301,12 +2305,12 @@ var AnsiLove = (function () {
                     } else { // If no baud-rate, treat as an image.
                         splitRenderBytes(bytes, function (canvases) {
                             // Set the container's width based on the width of the first canvas element.
-                            divCanvasContainer.style.width = canvases[0].width + "px";
+                            if (options["2x"]) {
+                                divCanvasContainer.style.width = (canvases[0].width / 2) + "px";
+                            } else {
+                                divCanvasContainer.style.width = canvases[0].width + "px";
+                            }
                             canvases.forEach(function (canvas) {
-                                // Double-scale each canvas, if the Chrome browser has been detected.
-                                if (retina && browser === CHROME) {
-                                    canvas = doubleScale(canvas);
-                                }
                                 // Append each canvas element to the element container.
                                 divCanvasContainer.appendChild(processCanvas(canvas));
                             });
@@ -2393,14 +2397,14 @@ var AnsiLove = (function () {
                         // Return the raw-data, returned by the display() function, and a sauce record.
                         self.postMessage({"splitimagedata": imagedata, "sauce": sauce});
                         // Pass the various options from the web worker invocation, setting the <imagedata> setting on.
-                    }, evt.data.split, {"imagedata": 1, "font": evt.data.font, "bits": evt.data.bits, "icecolors": evt.data.icecolors, "columns": evt.data.columns, "thumbnail": evt.data.thumbnail, "filetype": evt.data.filetype});
+                    }, evt.data.split, {"imagedata": 1, "font": evt.data.font, "bits": evt.data.bits, "icecolors": evt.data.icecolors, "columns": evt.data.columns, "thumbnail": evt.data.thumbnail, "2x": evt.data["2x"], "filetype": evt.data.filetype});
                 } else { // For just a single image.
                     // Web worker function for renderBytes.
                     AnsiLove.renderBytes(evt.data.bytes, function (imagedata, sauce) {
                         // Return the raw-data, returned by the display() function, and a sauce record.
                         self.postMessage({"imagedata": imagedata, "sauce": sauce});
                         // Pass the various options from the web worker invocation, setting the <imagedata> setting on.
-                    }, {"imagedata": 1, "font": evt.data.font, "bits": evt.data.bits, "icecolors": evt.data.icecolors, "columns": evt.data.columns, "thumbnail": evt.data.thumbnail, "filetype": evt.data.filetype});
+                    }, {"imagedata": 1, "font": evt.data.font, "bits": evt.data.bits, "icecolors": evt.data.icecolors, "columns": evt.data.columns, "thumbnail": evt.data.thumbnail, "2x": evt.data["2x"], "filetype": evt.data.filetype});
                 }
             } else { // If a url has been supplied.
                 if (evt.data.split > 0) { // If the imagedata is to be split.
@@ -2408,13 +2412,13 @@ var AnsiLove = (function () {
                         // Return the raw-data, returned by the display() function, and a sauce record.
                         self.postMessage({"splitimagedata": imagedata, "sauce": sauce});
                         // Pass the various options from the web worker invocation, setting the <imagedata> setting on.
-                    }, evt.data.split, {"imagedata": 1, "font": evt.data.font, "bits": evt.data.bits, "icecolors": evt.data.icecolors, "columns": evt.data.columns, "thumbnail": evt.data.thumbnail, "filetype": evt.data.filetype});
+                    }, evt.data.split, {"imagedata": 1, "font": evt.data.font, "bits": evt.data.bits, "icecolors": evt.data.icecolors, "columns": evt.data.columns, "thumbnail": evt.data.thumbnail, "2x": evt.data["2x"], "filetype": evt.data.filetype});
                 } else { // For just a single image.
                     AnsiLove.render(evt.data.url, function (imagedata, sauce) {
                         // Return the raw-data, returned by the display() function, and a sauce record.
                         self.postMessage({"imagedata": imagedata, "sauce": sauce});
                         // Pass the various options from the web worker invocation, setting the <imagedata> setting on.
-                    }, {"imagedata": 1, "font": evt.data.font, "bits": evt.data.bits, "icecolors": evt.data.icecolors, "columns": evt.data.columns, "thumbnail": evt.data.thumbnail, "filetype": evt.data.filetype});
+                    }, {"imagedata": 1, "font": evt.data.font, "bits": evt.data.bits, "icecolors": evt.data.icecolors, "columns": evt.data.columns, "thumbnail": evt.data.thumbnail, "2x": evt.data["2x"], "filetype": evt.data.filetype});
                 }
             }
         };
