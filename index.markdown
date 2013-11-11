@@ -11,7 +11,7 @@ var controller;
 controller = AnsiLove.animate("ans/example_usage.ans", function (canvas, sauce) {
     document.getElementById("example").appendChild(canvas);
     controller.play(2800);
-}, {"bits": "9"});
+}, {"bits": "9", "2x": (window.devicePixelRatio > 1) ? 1 : 0});
 </script>
 
 ## Description
@@ -176,6 +176,13 @@ A thumbnail image is rendered instead of a full-size image. Does not apply when 
 - xb
 
 Instead of guessing the filetype based on the name or extension of the url, the chosen rendering method can be chosen from this list by using the option `"filetype": "<type>"`. Using this method, it is possible to display the raw data contained within a file by over-riding this property with `"asc"`.
+
+### 2x options
+
+- 0 (default, turned OFF)
+- 1 (turned ON)
+
+Delivers a canvas element which has double the width and height in pixels, but styled in half these amounts in CSS-pixels. This makes it suitable for display on devices with high pixel densities.
 
 ### SAUCE record
 

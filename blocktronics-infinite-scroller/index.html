@@ -28,11 +28,6 @@
         width: 640px;
         margin: 0 auto;
     }
-    #ansi canvas {
-        image-rendering: optimize-contrast;
-        image-rendering: -webkit-optimize-contrast;
-        image-rendering: -moz-crisp-edges;
-    }
     </style>
 </head>
     <body>
@@ -41,6 +36,9 @@
 <script type="text/javascript">
 (function init() {
     "use strict";
+    var retina;
+
+    retina = window.devicePixelRatio > 1;
     function httpGetList(url, callback, callbackFail) {
         var http;
         http = new XMLHttpRequest();
@@ -84,7 +82,7 @@
                         }());
                     }, false);
                 }());
-            }, {"2J": 0, "rows": Math.ceil(window.innerHeight / 16)}, function () {
+            }, {"2J": 0, "rows": Math.ceil(window.innerHeight / 16), "2x": retina ? 1 : 0}, function () {
                 setTimeout(loadAns, 3000);
             });
         }());

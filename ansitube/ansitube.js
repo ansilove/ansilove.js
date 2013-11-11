@@ -1,8 +1,9 @@
 document.addEventListener("DOMContentLoaded", function () {
     "use strict";
-    var files;
+    var files, retina;
 
     files = [];
+    retina = window.devicePixelRatio > 1;
 
     function httpGetJson(url, callback, callbackFail) {
         var http = new XMLHttpRequest();
@@ -40,8 +41,13 @@ document.addEventListener("DOMContentLoaded", function () {
         divPreviewOverlay.style.visibility = "visible";
         divPreviewContainer = document.getElementById("preview-container");
         clearElement(divPreviewContainer);
-        divPreviewContainer.style.width = canvas.width + "px";
-        divPreviewContainer.style.height = canvas.height + "px";
+        if (retina) {
+            divPreviewContainer.style.width = (canvas.width / 2) + "px";
+            divPreviewContainer.style.height = (canvas.height / 2) + "px";
+        } else {
+            divPreviewContainer.style.width = canvas.width + "px";
+            divPreviewContainer.style.height = canvas.height + "px";
+        }
         divPreviewContainer.appendChild(canvas);
         controller.play(baudrate, function () {
             timer = setTimeout(callback, 3000);
@@ -54,9 +60,12 @@ document.addEventListener("DOMContentLoaded", function () {
         };
     }
 
-    function playTube(url, baudrate, settings) {
+    function playTube(url, baudrate, settings, retina) {
         return function () {
             settings.spinner = "spinner.gif";
+            if (retina) {
+                settings["2x"] = 1;
+            }
             if (baudrate > 0) {
                 AnsiLove.popupAnimation(url, baudrate, settings);
             } else {
@@ -66,10 +75,9 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     httpGetJson("tubes.json", function (tubes) {
-        var i, divTubeLinks, divPreview, paragraph, spanTitle, spanCredit, retina;
+        var i, divTubeLinks, divPreview, paragraph, spanTitle, spanCredit;
         i = 0;
         divTubeLinks = document.getElementsByClassName("tube-link");
-        retina = window.devicePixelRatio > 1;
         (function next() {
             if (i < tubes.length) {
                 divPreview = document.createElement("div");
@@ -93,7 +101,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 paragraph.appendChild(spanCredit);
                 divTubeLinks[i].appendChild(divPreview);
                 divTubeLinks[i].appendChild(paragraph);
-                divTubeLinks[i].onclick = playTube(tubes[i].url, tubes[i].baudrate, tubes[i].settings);
+                divTubeLinks[i].onclick = playTube(tubes[i].url, tubes[i].baudrate, tubes[i].settings, retina);
                 ++i;
                 next();
             }
@@ -110,7 +118,8 @@ document.addEventListener("DOMContentLoaded", function () {
         return {
             "bits": document.getElementById("bits").value,
             "font": document.getElementById("font").value,
-            "icecolors": document.getElementById("icecolors").checked ? 1 : 0
+            "icecolors": document.getElementById("icecolors").checked ? 1 : 0,
+            "2x": retina ? 1 : 0
         };
     }
 
