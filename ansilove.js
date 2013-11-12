@@ -403,7 +403,7 @@ var AnsiLove = (function () {
             fontBitWidth = width * height;
             fontBuffer = [];
             // Set <excludeNinthBit> to true, if we need to ignore the ninth bit of a font.
-            excludeNinthBit = (width === 9) && (options.bits !== "9");
+            excludeNinthBit = (width === 9 && options.bits !== "9") || (width === 9 && options.thumbnail);
             // RGBA data, requires Red, Green, Blue, and Alpha values for each 'bit' in the 1-bit image data, <bits>.
             fontBuffer24Bit = new Uint8Array((excludeNinthBit ? width - 1 : width) * height * 4);
 
@@ -619,7 +619,7 @@ var AnsiLove = (function () {
     }());
 
     // Scales the RGBA image data, <sourcedata>, by averaging each "chunk" of a certain size, <chunkWidth> and <chunkHeight>. <width> and <height> describe the size of the source image.
-    function scaleCanvas(sourceData, width, height, chunkWidth, chunkHeight) {
+    function scaleCanvas(sourceData, width, height, chunkWidth, chunkHeight, options) {
         var destWidth, destHeight, destData, rgba, pixelRowOffset, chunkSize, i, j, k, x, y, r, g, b, a;
 
         // Temporary var for storing the value of the averaged "chunk".
@@ -664,7 +664,8 @@ var AnsiLove = (function () {
         return {
             "width": destWidth,
             "height": destHeight,
-            "rgbaData": destData
+            "rgbaData": destData,
+            "2x": options["2x"]
         };
     }
 
@@ -716,7 +717,7 @@ var AnsiLove = (function () {
         if (options.thumbnail) {
             // ... calculate the scale factor and return the reduced image data.
             chunky = Math.pow(2, 4 - options.thumbnail);
-            return scaleCanvas(rgbaData, canvasWidth, canvasHeight, chunky, chunky);
+            return scaleCanvas(rgbaData, canvasWidth, canvasHeight, chunky, chunky, options);
         }
 
         // Return the imageData, as a Uint8Array RGBA array, <rgbaData>, with image dimensions, <width> and <height>.
