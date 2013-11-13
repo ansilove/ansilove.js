@@ -82,7 +82,90 @@ packs/BLOCKTRONICS_16COLORS/we-triple_final.ans
 packs/BLOCKTRONICS_16COLORS/WHATHAPPENEDWITHLUCIANOAYRES.ANS
 packs/BLOCKTRONICS_16COLORS/zO-16cColly.ans
 packs/BLOCKTRONICS_16COLORS/zO-16cDraw.ans
+packs/blocktronics_acid_trip/006_BLOCKTRONICS_ACiD_Trip_NFO.ans
+packs/blocktronics_acid_trip/ant-blackflag.ANS
+packs/blocktronics_acid_trip/ant-superman75.ANS
+packs/blocktronics_acid_trip/asx-acid.ans
+packs/blocktronics_acid_trip/avg-EVOKE2013.ANS
+packs/blocktronics_acid_trip/avg-LUREFONT.ANS
+packs/blocktronics_acid_trip/aw-FLUPH.ANS
+packs/blocktronics_acid_trip/axd-DARKREALMS.ANS
+packs/blocktronics_acid_trip/axd-INK2.ANS
 packs/blocktronics_acid_trip/blocktronics_acid_trip.ans
+packs/blocktronics_acid_trip/bw_ACIDTRIP.ANS
+packs/blocktronics_acid_trip/bw_ENZOKNIGHT.ANS
+packs/blocktronics_acid_trip/bw_OCTOBERCAT.ANS
+packs/blocktronics_acid_trip/bym-67ACIDTRIP.ANS
+packs/blocktronics_acid_trip/bym-C20H25N3O.ANS
+packs/blocktronics_acid_trip/cat-bones.ans
+packs/blocktronics_acid_trip/cat-everyrose.ans
+packs/blocktronics_acid_trip/cl!-ACDT.ANS
+packs/blocktronics_acid_trip/crs-stillacid.ans
+packs/blocktronics_acid_trip/cx-acidic_burning.ans
+packs/blocktronics_acid_trip/cx-imminent_incineration.ans
+packs/blocktronics_acid_trip/dman-halloween.ans
+packs/blocktronics_acid_trip/dman-warrior.ans
+packs/blocktronics_acid_trip/fil-acer.ans
+packs/blocktronics_acid_trip/fil-ache.ans
+packs/blocktronics_acid_trip/fil-blaq.ans
+packs/blocktronics_acid_trip/fil-bloq.ans
+packs/blocktronics_acid_trip/fil-fuel.ans
+packs/blocktronics_acid_trip/fil-pinsy lohan.ans
+packs/blocktronics_acid_trip/fvk1-dizremix.ans
+packs/blocktronics_acid_trip/h7-acidtronics.ans
+packs/blocktronics_acid_trip/k1-acid.ans
+packs/blocktronics_acid_trip/k1-np12.ans
+packs/blocktronics_acid_trip/k1-pharc.ans
+packs/blocktronics_acid_trip/mt-paris_is_burning.ans
+packs/blocktronics_acid_trip/mt-slug_life.ans
+packs/blocktronics_acid_trip/ns-acidlive.ans
+packs/blocktronics_acid_trip/rad-ACIDTRIP.ANS
+packs/blocktronics_acid_trip/rad-BREAK.ANS
+packs/blocktronics_acid_trip/rad-MARVELOUS.ANS
+packs/blocktronics_acid_trip/rad-TRICKOR.ANS
+packs/blocktronics_acid_trip/rad2m-HOTMESS.ANS
+packs/blocktronics_acid_trip/rad2m-SUNNY.ANS
+packs/blocktronics_acid_trip/rad43-SENSE.ANS
+packs/blocktronics_acid_trip/radtxt-DEZIGN.ANS
+packs/blocktronics_acid_trip/rev-shadowman.ans
+packs/blocktronics_acid_trip/sp-acidt.ans
+packs/blocktronics_acid_trip/sp-b701.ans
+packs/blocktronics_acid_trip/tcf - 20 - cockblocktronics.ans
+packs/blocktronics_acid_trip/tcf - 21 - acidtrip.ans
+packs/blocktronics_acid_trip/tcf - 23 - Cybernary.ans
+packs/blocktronics_acid_trip/the textorcist - Bad Karma Remix.ANS
+packs/blocktronics_acid_trip/the textorcist - Catbones Tribute.ans
+packs/blocktronics_acid_trip/the textorcist - Coders Block.ans
+packs/blocktronics_acid_trip/the textorcist - Haciend.ans
+packs/blocktronics_acid_trip/the textorcist - Jasmine.ans
+packs/blocktronics_acid_trip/the textorcist - Silence of the Chat.ans
+packs/blocktronics_acid_trip/ungenannt_autumnharvester.ans
+packs/blocktronics_acid_trip/ungenannt_blackflag.ans
+packs/blocktronics_acid_trip/ungenannt_fluph.ans
+packs/blocktronics_acid_trip/ungenannt_mohctp_darksorrow.ans
+packs/blocktronics_acid_trip/ungenannt_nachteule.ans
+packs/blocktronics_acid_trip/ungenannt_worldscollide.ans
+packs/blocktronics_acid_trip/ungenennt_cardinalspirit.ans
+packs/blocktronics_acid_trip/we-a toast to the captain.ans
+packs/blocktronics_acid_trip/we-ACiDTrip.ans
+packs/blocktronics_acid_trip/we-COUNTDOWN.ANS
+packs/blocktronics_acid_trip/we-Oz.ans
+packs/blocktronics_acid_trip/wz-HJ.ANS
+packs/blocktronics_acid_trip/xxxACiD_FiELD_TRiP.ans
+packs/blocktronics_acid_trip/xxxLSD-STREET_CRED.ans
+packs/blocktronics_acid_trip/xxxLSD001.ans.ans
+packs/blocktronics_acid_trip/xxxLSD002.ans.ans
+packs/blocktronics_acid_trip/xxxLSD003.ans.ans
+packs/blocktronics_acid_trip/xxxLSD004.ans.ans
+packs/blocktronics_acid_trip/xxxLSD005.ans.ans
+packs/blocktronics_acid_trip/zii-ACiD.ANS
+packs/blocktronics_acid_trip/ziiig-LOL.ANS
+packs/blocktronics_acid_trip/zo-AfterHoursBBS.ans
+packs/blocktronics_acid_trip/zo-BreakMyHeart.ans
+packs/blocktronics_acid_trip/zo-Classic.ans
+packs/blocktronics_acid_trip/zo-DemoSplash.ans
+packs/blocktronics_acid_trip/zo-flyingEagleTutorial.ans
+packs/blocktronics_acid_trip/zo-JamesBodie.ans
 packs/blocktronics_AWAKEN/avg-clutch25.ans
 packs/blocktronics_AWAKEN/avg-dexter.ans
 packs/blocktronics_AWAKEN/blocktronics_awaken.ans
