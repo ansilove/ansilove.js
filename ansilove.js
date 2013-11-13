@@ -992,7 +992,7 @@ var AnsiLove = (function () {
             // If there is a sauce record...
             if (file.sauce) {
                 // Do a weak sanity check to see if there is a valid column setting, and use it if it passes.
-                if (file.sauce.tInfo1 > 0) {
+                if (file.sauce.tInfo1 > 0 && file.sauce.tInfo1 <= 1000) {
                     columns = file.sauce.tInfo1;
                 } else {
                     columns = 80;
