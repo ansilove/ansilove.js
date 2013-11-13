@@ -1,96 +1,58 @@
 [
     {
-        "author": "Enzo and Cleaner",
-        "baudrate": 28800,
-        "settings": {
-            "bits": "9",
-            "font": "80x25",
-            "icecolors": 0,
-            "rows": 35
-        },
-        "thumb": "thumbs/we-alove",
-        "url": "../ans/we-alove.ans"
+        "author": "RaD Man",
+        "baudrate": 14400,
+        "settings": {},
+        "thumb": "thumbs/rad-PIRANHA",
+        "url": "../ans/rad-PIRANHA.ANS"
     },
     {
-        "author": "Knocturnal",
-        "baudrate": 28800,
-        "settings": {
-            "bits": "9",
-            "font": "80x25",
-            "icecolors": 0,
-            "rows": 28
-        },
-        "thumb": "thumbs/k1-alove",
-        "url": "../ans/k1-alove.ans"
+        "author": "RaD Man",
+        "baudrate": 9600,
+        "settings": {},
+        "thumb": "thumbs/INN",
+        "url": "../ans/INN.ANS"
     },
     {
-        "author": "Noches",
-        "baudrate": 28800,
-        "settings": {
-            "bits": "9",
-            "font": "80x25",
-            "icecolors": 0,
-            "rows": 32
-        },
-        "thumb": "thumbs/no-alove",
-        "url": "../ans/no-alove.ans"
+        "author": "RaD Man",
+        "baudrate": 9600,
+        "settings": {},
+        "thumb": "thumbs/XTC2",
+        "url": "../ans/XTC2.ANS"
     },
     {
-        "author": "Cleaner",
-        "baudrate": 28800,
-        "settings": {
-            "bits": "9",
-            "font": "80x25",
-            "icecolors": 0,
-            "rows": 39
-        },
-        "thumb": "thumbs/cl!-al03",
-        "url": "../ans/cl!-al03.ans"
+        "author": "RaD Man",
+        "baudrate": 9600,
+        "settings": {},
+        "thumb": "thumbs/ELM",
+        "url": "../ans/ELM.ANS"
     },
     {
-        "author": "Ansichrist",
+        "author": "Blocktronics",
         "baudrate": 0,
-        "settings": {
-            "bits": "9",
-            "font": "80x25",
-            "icecolors": 0
-        },
-        "thumb": "thumbs/ns-bp09",
-        "url": "../ans/ns-bp09.ans"
+        "settings": {},
+        "thumb": "thumbs/blocktronics_acid_trip",
+        "url": "../ans/blocktronics_acid_trip.ans"
     },
     {
-        "author": "BYM",
+        "author": "ungenannt",
         "baudrate": 0,
-        "settings": {
-            "bits": "9",
-            "font": "80x25",
-            "icecolors": 0
-        },
-        "thumb": "thumbs/bym-ansilove",
-        "url": "../ans/bym-ansilove.ans"
+        "settings": {},
+        "thumb": "thumbs/ungenannt_leviathan",
+        "url": "../ans/ungenannt_leviathan.ans"
     },
     {
-        "author": "Grymmjack",
-        "baudrate": 28800,
-        "settings": {
-            "bits": "9",
-            "font": "80x25",
-            "icecolors": 0,
-            "rows": 22
-        },
-        "thumb": "thumbs/gj-ansilove",
-        "url": "../ans/gj-ansilove.ans"
+        "author": "ungenannt",
+        "baudrate": 0,
+        "settings": {},
+        "thumb": "thumbs/ungenannt_mochtp_darksorrow",
+        "url": "../ans/ungenannt_mochtp_darksorrow.ans"
     },
     {
-        "author": "Noches and Avenging Angel",
-        "baudrate": 28800,
-        "settings": {
-            "bits": "9",
-            "font": "80x25",
-            "icecolors": 0,
-            "rows": 39
-        },
-        "thumb": "thumbs/us-alov",
-        "url": "../ans/us-alov.ans"
+        "author": "Blocktronics",
+        "baudrate": 0,
+        "settings": {},
+        "thumb": "thumbs/we-zombies_in_space",
+        "url": "../ans/we-zombies_in_space.ans"
     }
 ]
