@@ -1,13 +1,13 @@
 ## Description
 
-Ansilove.js is a partial rewrite of [ansilove][1] and [AnsiLove-C][2] in the Javascript programming language. Unlike the original projects, Ansilove.js enables artscene related file formats to be displayed directly on a webpage on the client-side, and supports ANSi (.ANS), PCBOARD (.PCB), BiNARY (.BIN), ADF (.ADF), iDF (.IDF), TUNDRA (.TND) and XBiN (.XB) formats.
+AnsiLove.js is a partial rewrite of [ansilove][1] and [AnsiLove-C][2] in the Javascript programming language. Unlike the original projects, AnsiLove.js enables artscene related file formats to be displayed directly on a webpage on the client-side, and supports ANSi (.ANS), PCBOARD (.PCB), BiNARY (.BIN), ADF (.ADF), iDF (.IDF), TUNDRA (.TND) and XBiN (.XB) formats.
 
-Ansilove.js supports the majority of options found in the original set of tools.
+AnsiLove.js supports the majority of options found in the original set of tools.
 
 [ansilove™][1] is a trademark of Frederic Cambus.  
 [AnsiLove-C™][2] is a trademark of Stefan Vogt, Brian Cassidy and Frederic Cambus.
 
-Ansilove.js has been tested on Safari, Firefox, and Chrome. Results may vary widely on Internet Explorer browsers.
+AnsiLove.js has been tested on Safari, Firefox, and Chrome. Results may vary widely on Internet Explorer browsers.
 
 ## Features
 
@@ -197,12 +197,12 @@ It is also possible to retrieve a record for a file without generating an image 
 
 ## License
 
-Ansilove is released under a MIT-style license. See `LICENSE` file for details.
+AnsiLove.js is released under a MIT-style license. See `LICENSE` file for details.
 
 ## Author
 
-Ansilove is developed by [Frederic Cambus](http://www.cambus.net)  
-Ansilove.js is developed by [Andrew Herbert](http://andyh.org)
+AnsiLove is developed by [Frederic Cambus](http://www.cambus.net)  
+AnsiLove.js is developed by [Andrew Herbert](http://andyh.org)
 
 ## Resources
 

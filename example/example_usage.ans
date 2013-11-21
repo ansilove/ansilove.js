@@ -1,4 +1,4 @@
-[0;1;40;37m[?33hAnsilove.[35mrender[0m([32m"cl!-al02.ans"[37m, [1;33mfunction [37m([0mcanvas[1m, [0msauce[1m) {
+[0;1;40;37m[?33hAnsiLove.[35mrender[0m([32m"cl!-al02.ans"[37m, [1;33mfunction [37m([0mcanvas[1m, [0msauce[1m) {
     document.[35mgetElementById[37m([0;32m"ansi-container"[1;37m).[35mappendChild[37m([0mcanvas[1m);
     [33mconsole[37m.log(sauce);
 }, {[0;32m"bits"[1;37m: [0;32m"9"[1;37m});
@@ -6,7 +6,7 @@
 [0m// And for producing extremely long files,
 // spanning multiple canvas elements by splitting every nth row...
 
-[0;1;40;37m[?33hAnsilove.[35msplitRender[0m([32m"long_ansi.ans"[37m, [1;33mfunction [37m([0mcanvases[1m, [0msauce[1m) {
+[0;1;40;37m[?33hAnsiLove.[35msplitRender[0m([32m"long_ansi.ans"[37m, [1;33mfunction [37m([0mcanvases[1m, [0msauce[1m) {
     canvases.[35mforEach[37m([1;33mfunction [37m([0mcanvas[1m) {
         canvas.[35mstyle[37m.[35mverticalAlign [37m= [0;32m"bottom"; [37m// For perfect, gap-less viewing
         [1mdocument.[35mgetElementById[37m([0;32m"ansi-container"[1;37m).[35mappendChild[37m([0mcanvas[1m);
@@ -16,7 +16,7 @@
 
 [0m// And for [5mansimations[25m...
 
-[1;33mvar [1;37mcontroller = [0;1;40;37m[?33hAnsilove.[35manimate[0m([32m"ansimation.ans"[37m, [1;33mfunction [37m([0mcanvas[1m, [0msauce[1m) {
+[1;33mvar [1;37mcontroller = [0;1;40;37m[?33hAnsiLove.[35manimate[0m([32m"ansimation.ans"[37m, [1;33mfunction [37m([0mcanvas[1m, [0msauce[1m) {
     document.[35mgetElementById[37m([0;32m"ansi-container"[1;37m).[35mappendChild[37m([0mcanvas[1m);
     [33mconsole[37m.log(sauce);
     controller.play([31m2800[37m, [33mfunction [1;37m() {
