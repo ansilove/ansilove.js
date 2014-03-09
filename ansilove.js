@@ -907,7 +907,7 @@ var AnsiLove = (function () {
 
         // A function to parse a sequence of bytes representing an ANSI file format.
         function ans(bytes, options) {
-            var file, escaped, escapeCode, j, code, values, columns, imageData, topOfScreen, x, y, savedX, savedY, foreground, background, bold, blink, inverse, icecolors;
+            var file, escaped, escapeCode, j, code, values, columns, imageData, topOfScreen, x, y, savedX, savedY, foreground, background, foreground24bit, background24bit, drawForeground, drawBackground, bold, blink, inverse, icecolors;
 
             // Turn bytes into a File object.
             file = new File(bytes);
@@ -916,6 +916,8 @@ var AnsiLove = (function () {
             function resetAttributes() {
                 foreground = 7;
                 background = 0;
+                foreground24bit = undefined;
+                background24bit = undefined;
                 bold = false;
                 blink = false;
                 inverse = false;
@@ -1046,9 +1048,15 @@ var AnsiLove = (function () {
                                     if (values[j] >= 30 && values[j] <= 37) {
                                         // Set the <foreground> color, points to a value in the <palette> array...
                                         foreground = values[j] - 30;
+                                        if (foreground24bit) {
+                                            foreground24bit = undefined;
+                                        }
                                     } else if (values[j] >= 40 && values[j] <= 47) {
                                         // ... and for <background>, if the required value is used.
                                         background = values[j] - 40;
+                                        if (background24bit) {
+                                            background24bit = undefined;
+                                        }
                                     } else {
                                         switch (values[j]) {
                                         case 0: // Reset attributes
@@ -1056,6 +1064,9 @@ var AnsiLove = (function () {
                                             break;
                                         case 1: // Bold
                                             bold = true;
+                                            if (foreground24bit) {
+                                                foreground24bit = undefined;
+                                            }
                                             break;
                                         case 5: // Blink
                                             blink = true;
@@ -1079,6 +1090,18 @@ var AnsiLove = (function () {
                             case "s": // Save the current <x> and <y> positions.
                                 savedX = x;
                                 savedY = y;
+                                break;
+                            case "t": // 24 bit ANSI
+                                if (values.length === 4) {
+                                    switch (values[0]) {
+                                    case 0: // Background
+                                        background24bit = new Uint8Array([values[1], values[2], values[3]]);
+                                        break;
+                                    case 1: // Foreground
+                                        foreground24bit = new Uint8Array([values[1], values[2], values[3]]);
+                                        break;
+                                    }
+                                }
                                 break;
                             case "u": // Restore the current <x> and <y> positions.
                                 x = savedX;
@@ -1112,11 +1135,24 @@ var AnsiLove = (function () {
                             if (options.mode === "ced") {
                                 imageData.set(x - 1, y - 1 + topOfScreen, code, false, 1, 0);
                             } else {
-                                 // In <inverse> mode, or not, set the character <code> and attribute data to the <imageData> object, according to the current <foreground>, <background>, <icecolors>, <bold>, and <blink> setting.
-                                if (!inverse) {
-                                    imageData.set(x - 1, y - 1 + topOfScreen, code, false, (bold ? (foreground + 8) : foreground), (blink && icecolors ? background + 8 : background));
+                                // In <inverse> mode, or not, set the character <code> and attribute data to the <imageData> object, according to the current <foreground>, <background>, <icecolors>, <bold>, and <blink> setting.
+                                if (inverse) {
+                                    drawForeground = background;
+                                    drawBackground = foreground;
                                 } else {
-                                    imageData.set(x - 1, y - 1 + topOfScreen, code, false, (bold ? (background + 8) : background), (blink && icecolors ? foreground + 8 : foreground));
+                                    drawForeground = foreground;
+                                    drawBackground = background;
+                                }
+                                if (bold) {
+                                    drawForeground += 8;
+                                }
+                                if (blink && icecolors && !background24bit) {
+                                    drawBackground += 8;
+                                }
+                                if (foreground24bit || background24bit) {
+                                    imageData.set(x - 1, y - 1 + topOfScreen, code, true, foreground24bit || imageData.palette[drawForeground], background24bit || imageData.palette[drawBackground]);
+                                } else {
+                                    imageData.set(x - 1, y - 1 + topOfScreen, code, false, drawForeground, drawBackground);
                                 }
                             }
                             // If the end of row has been reached, start a new line.
@@ -1691,7 +1727,7 @@ var AnsiLove = (function () {
 
     // Receives a sequence of <bytes>, representing an ANSI file, with <options> supplied by the user and returns an Ansimation object which can be used to display and control an animation.
     function Ansimation(bytes, options) {
-        var timer, interval, file, font, palette, columns, rows, canvas, ctx, blinkCanvas, buffer, bufferCtx, blinkCtx, escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, drawForeground, drawBackground, bold, inverse, blink, fontImageData;
+        var timer, interval, file, font, palette, columns, rows, canvas, ctx, blinkCanvas, buffer, bufferCtx, blinkCtx, escaped, escapeCode, j, code, values, x, y, savedX, savedY, foreground, background, foreground24bit, background24bit, drawForeground, drawBackground, bold, inverse, blink, fontImageData;
 
         // Convert bytes to a File() object.
         file = new File(bytes);
@@ -1748,6 +1784,8 @@ var AnsiLove = (function () {
         function resetAttributes() {
             foreground = 7;
             background = 0;
+            foreground24bit = undefined;
+            background24bit = undefined;
             bold = false;
             blink = false;
             inverse = false;
@@ -1878,9 +1916,15 @@ var AnsiLove = (function () {
                                     if (values[j] >= 30 && values[j] <= 37) {
                                         // Set the foreground colour.
                                         foreground = values[j] - 30;
+                                        if (foreground24bit) {
+                                            foreground24bit = undefined;
+                                        }
                                     } else if (values[j] >= 40 && values[j] <= 47) {
                                         // Set the background colour.
                                         background = values[j] - 40;
+                                        if (background24bit) {
+                                            background24bit = undefined;
+                                        }
                                     } else {
                                         switch (values[j]) {
                                         case 0: // Reset attributes.
@@ -1888,6 +1932,9 @@ var AnsiLove = (function () {
                                             break;
                                         case 1: // Bold on.
                                             bold = true;
+                                            if (foreground24bit) {
+                                                foreground24bit = undefined;
+                                            }
                                             break;
                                         case 5: // Blink on.
                                             blink = true;
@@ -1911,6 +1958,18 @@ var AnsiLove = (function () {
                             case "s": // Store the current cursor position.
                                 savedX = x;
                                 savedY = y;
+                                break;
+                            case "t": // 24 bit ANSI
+                                if (values.length === 4) {
+                                    switch (values[0]) {
+                                    case 0: // Background
+                                        background24bit = new Uint8Array([values[1], values[2], values[3], 255]);
+                                        break;
+                                    case 1: // Foreground
+                                        foreground24bit = new Uint8Array([values[1], values[2], values[3], 255]);
+                                        break;
+                                    }
+                                }
                                 break;
                             case "u": // Restore the saved cursor position.
                                 if (savedX !== undefined && savedY !== undefined) {
@@ -1961,14 +2020,18 @@ var AnsiLove = (function () {
                             if (bold) {
                                 drawForeground += 8;
                             }
-                            if (blink && options.icecolors) {
+                            if (blink && options.icecolors && !background24bit) {
                                 drawBackground += 8;
                             }
                             // Obtain the <fontImageData> by calling font.getData().
-                            fontImageData.data.set(font.getData(code, palette, drawForeground, drawBackground), 0);
+                            if (foreground24bit || background24bit) {
+                                fontImageData.data.set(font.get24BitData(code, foreground24bit || palette[drawForeground], background24bit || palette[drawBackground]), 0);
+                            } else {
+                                fontImageData.data.set(font.getData(code, palette, drawForeground, drawBackground), 0);
+                            }
                             // Draw the image to the canvas.
                             ctx.putImageData(fontImageData, (x - 1) * font.width, (y - 1) * font.height, 0, 0, font.width, font.height);
-                            if (!options.icecolors) {
+                            if (!options.icecolors && !background24bit) {
                                 // Update the blink canvas elements, by drawing both versions of the blinking data to the <blinkCanvas> array, or if <blink> is not set, clear whatever may already be drawn to these elements.
                                 if (blink) {
                                     blinkCtx[0].putImageData(fontImageData, (x - 1) * font.width, (y - 1) * font.height, 0, 0, font.width, font.height);
