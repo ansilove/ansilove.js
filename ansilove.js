@@ -669,47 +669,39 @@ var AnsiLove = (function () {
         };
     }
 
-    // Receives a <raw> object returned from the image-parsing functions found in Parser, and outputs a Uint8Array with RGBA data, <rgbaData>, with dimensions <width> and <height>. <start> and <length> point to offsets in <raw.imageData>, so that only part of the image can be rendered. <altFont> is a font object, returned by font() to be used when rendering the image (assuming no font information is held in raw.font), and <options>, which are passed by the user.
+    // Receives a <raw> object returned from the image-parsing functions found in Parser, and outputs a Uint8Array with RGBA data, <rgbaData>, with dimensions <width> and <height>. <start> and <length> point to rows offsets, so that only part of the image can be rendered. <altFont> is a font object, returned by font() to be used when rendering the image (assuming no font information is held in raw.font), and <options>, which are passed by the user.
     function display(raw, start, length, options) {
-        var canvasWidth, canvasHeight, rgbaData, end, i, k, l, x, fontBitWidth, fontData, rowOffset, screenOffset, fontOffset, chunky;
+        var canvasWidth, canvasHeight, rgbaData, end, i, k, l, x, fontBitWidth, fontData, rowOffset, data, screenOffset, fontOffset, chunky;
 
         // Temporary variable to pre-calculate some data.
         fontBitWidth = raw.font.width * 4;
 
+        data = raw.getData();
+
         // Define where to stop reading data.
-        end = Math.min(start + length, raw.imageData.length);
+        start = start * raw.columns * 10;
+        end = Math.min(start + length * raw.columns * 10, data.length);
 
         // Calculate the dimensions of the output image.
-        canvasWidth = raw.width * raw.font.width;
-        canvasHeight = (end - start) / raw.rowLength * raw.font.height;
+        canvasWidth = raw.columns * raw.font.width;
+        canvasHeight = (end - start) / (raw.columns * 10) * raw.font.height;
 
         // Initialize the RGBA image data and calculate how many bytes are in each text-row.
         rgbaData = new Uint8Array(canvasWidth * canvasHeight * 4);
         rowOffset = canvasWidth * 4;
 
-        // If the image has palette data...
-        if (raw.palette) {
-            for (i = start, screenOffset = 0, x = 0; i < end; i += 2, screenOffset += fontBitWidth) {
-                // ... retrieve the font image data by calling getData() in Font, and inserting the Uint8Array data at the required position in the RGBA data.
-                fontData = raw.font.getData(raw.imageData[i], raw.palette, raw.imageData[i + 1] & 15, raw.imageData[i + 1] >> 4);
-                for (fontOffset = screenOffset, k = l = 0; k < raw.font.height; ++k, fontOffset += rowOffset, l += fontBitWidth) {
-                    rgbaData.set(fontData.subarray(l, l + fontBitWidth), fontOffset);
-                }
-                if (++x % raw.width === 0) {
-                    screenOffset += (raw.font.height - 1) * rowOffset;
-                }
+        for (i = start, screenOffset = 0, x = 0; i < end; i += 10, screenOffset += fontBitWidth) {
+            // If we have 24 bit data
+            if (data[i + 1]) {
+                fontData = raw.font.get24BitData(data[i], data.subarray(i + 2, i + 6), data.subarray(i + 6, i + 10));
+            } else {
+                fontData = raw.font.getData(data[i], raw.palette, data[i + 2], data[i + 3]);
             }
-        } else {
-            // If the image stores 24-bit data...
-            for (i = start, screenOffset = 0, x = 0; i < end; i += 9, screenOffset += fontBitWidth) {
-                // ... retrieve the font image data by calling get24BitData() in Font, and inserting the Uint8Array data at the required position in the RGBA data.
-                fontData = raw.font.get24BitData(raw.imageData[i], raw.imageData.subarray(i + 1, i + 5), raw.imageData.subarray(i + 5, i + 9));
-                for (fontOffset = screenOffset, k = l = 0; k < raw.font.height; ++k, fontOffset += rowOffset, l += fontBitWidth) {
-                    rgbaData.set(fontData.subarray(l, l + fontBitWidth), fontOffset);
-                }
-                if (++x % raw.width === 0) {
-                    screenOffset += (raw.font.height - 1) * rowOffset;
-                }
+            for (fontOffset = screenOffset, k = l = 0; k < raw.font.height; ++k, fontOffset += rowOffset, l += fontBitWidth) {
+                rgbaData.set(fontData.subarray(l, l + fontBitWidth), fontOffset);
+            }
+            if (++x % raw.columns === 0) {
+                screenOffset += (raw.font.height - 1) * rowOffset;
             }
         }
 
@@ -795,15 +787,18 @@ var AnsiLove = (function () {
     // Collects all the functions which parse the supported image formats, with a single entrypoint, readBytes.
     Parser = (function () {
         // ScreenData() returns a representation of the screen with <width> columns. This is used for images with a predefined palette. i.e. all formats except Tundra.
-        function ScreenData(width) {
-            // <imageData> represents a Uint8Array of the screen, two pairs of bytes represent the character code and colour attributes in the second, as also used in the .bin file format. <maxY> stores the highest row number written to, and <pos> is the current cursor position represented in the <imageData> array.
-            var imageData, maxY, pos;
+        function ScreenData(columns) {
+            // <imageData> represents a Uint8Array of the screen, two pairs of bytes represent the character code and colour attributes in the second, as also used in the .bin file format. <rows> stores the highest row number written to, and <pos> is the current cursor position represented in the <imageData> array.
+            var that, imageData, pos;
+
+            that = this;
 
             // Returns the ScreenData object to its initial start, used upon initialization or when a screen-clear code is issued.
             this.reset = function () {
-                imageData = new Uint8Array(width * 1000 * 2);
-                maxY = 0;
+                imageData = new Uint8Array(columns * 1000 * 10);
                 pos = 0;
+                that.columns = columns;
+                that.rows = 0;
             };
 
             this.reset();
@@ -811,116 +806,81 @@ var AnsiLove = (function () {
             // Extend the <imageData> array if necessary, by creating a new array with an additional 1000 rows after from the <y> position currently attempting to be written to, and copy the existing data to the start.
             function extendImageData(y) {
                 var newImageData;
-                newImageData = new Uint8Array(width * (y + 1000) * 2 + imageData.length);
+                newImageData = new Uint8Array(that.columns * (y + 1000) * 10 + imageData.length);
                 newImageData.set(imageData, 0);
                 imageData = newImageData;
             }
 
             // Set the character code, <charCode>, and foreground & background attribute, <attrib>, and the <x> and <y> position of the <imageData> array.
-            this.set = function (x, y, charCode, attrib) {
-                pos = (y * width + x) * 2;
+            this.set = function (x, y, charCode, trueColor, fg, bg) {
+                pos = (y * that.columns + x) * 10;
                 // If we see that we will be writing past the end of the array, extend the array by calling extendImageData() with the current <y> position we want to write to.
                 if (pos >= imageData.length) {
                     extendImageData(y);
                 }
                 // Store the data...
                 imageData[pos] = charCode;
-                imageData[pos + 1] = attrib;
-                // ... and update <maxY> if it's the largest <y> value used so far.
-                if (y > maxY) {
-                    maxY = y;
+                if (trueColor) {
+                    // Indicate that we are referring to RGBA values...
+                    imageData[pos + 1] = 1;
+                    // ... and store the data.
+                    imageData.set(fg, pos + 2);
+                    imageData.set(bg, pos + 6);
+                } else {
+                    // ... and store the palette pointers.
+                    imageData[pos + 2] = fg;
+                    imageData[pos + 3] = bg;
+                }
+                // ... and update <rows> if it's the largest <y> value used so far.
+                if (y + 1 > that.rows) {
+                    that.rows = y + 1;
                 }
             };
 
-            // Set the character code, <charCode>, and foreground & background atrtribute, <attrib>, after the last position which was written to.
-            this.push = function (charCode, attrib) {
-                var y;
-                // Calculate the current <y> position where the character will be inserted.
-                y = Math.ceil(pos / width / 2);
-                // Extend the <imageData> array the limits of the array have been reached.
-                if (pos === imageData.length) {
-                    extendImageData(y);
-                }
-                // Store the data...
-                imageData[pos++] = charCode;
-                imageData[pos++] = attrib;
-                // ... and update <maxY> if it's the largest <y> value used so far.
-                if (y > maxY) {
-                    maxY = y;
+            this.raw = function (bytes) {
+                var i, j;
+                that.rows = Math.ceil(bytes.length / 2 / that.columns);
+                imageData = new Uint8Array(that.columns * that.rows * 10);
+                for (i = 0, j = 0; j < bytes.length; i += 10, j += 2) {
+                    imageData[i] = bytes[j];
+                    imageData[i + 2] = bytes[j + 1] & 15;
+                    imageData[i + 3] = bytes[j + 1] >> 4;
                 }
             };
 
-            // Return the <imageData> array, but only up to the <maxY> row.
-            this.getData = function () {
-                return imageData.subarray(0, width * (maxY + 1) * 2);
-            };
-
-            // Return the amount of rows written to the <imageData> array.
-            this.getHeight = function () {
-                return maxY + 1;
-            };
-
-            // Return the length of each row in the <imageData> array, in bytes.
-            this.rowLength = width * 2;
-        }
-
-        // A 24-bit version of the ScreenData() object, which represents a character code, a single bytes, then foreground and background data as eight 8-bit bytes (RGBA data), for each glyph on-screen. Used only for the Tundra file format.
-        function ScreenData24(width) {
-            // <imageData> represents a Uint8Array of the screen, one byte for the character code, then two sets of RGBA data for foreground and background. <maxY> stores the highest row number written to, and <pos> is the current cursor position represented in the <imageData> array.
-            var imageData, maxY, pos;
-
-            imageData = new Uint8Array(width * 27 * 9);
-            maxY = 0;
-            pos = 0;
-
-            // Extend the <imageData> array if necessary, by creating a new array with an additional 1000 rows after from the <y> position currently attempting to be written to, and copy the existing data to the start.
-            function extendImageData(y) {
-                var newImageData;
-                newImageData = new Uint8Array(width * (y + 27) * 9 + imageData.length);
-                newImageData.set(imageData, 0);
+            this.trimColumns = function () {
+                var i, height, j, maxX, newImageData;
+                for (maxX = 0, height = imageData.length / 10 / that.columns, i = 0; i < imageData.length; i += 10) {
+                    // If a character code is seen, check to see if it's the highest column value, and record it if necessary.
+                    if (imageData[i]) {
+                        maxX = Math.max((i / 10) % that.columns, maxX);
+                    }
+                }
+                ++maxX;
+                // Create a new imageData object, with a reduced size if necessary.
+                for (newImageData = new Uint8Array((maxX + 1) * height * 10), i = 0, j = 0; i < newImageData.length; i += maxX * 10, j += that.columns * 10) {
+                    newImageData.set(imageData.subarray(j, j + that.columns * 10), i);
+                }
                 imageData = newImageData;
-            }
-
-            // Set the character code, <charCode> at the <x> and <y> position of the <imageData> array, with the RGBA data defined in fg and bg.
-            this.set = function (x, y, charCode, fg, bg) {
-                pos = (y * width + x) * 9;
-                // If we see that we will be writing past the end of the array, extend the array by calling extendImageData() with the current <y> position we want to write to.
-                if (pos >= imageData.length) {
-                    extendImageData(y);
-                }
-                // Store the data...
-                imageData[pos] = charCode;
-                imageData.set(fg, pos + 1);
-                imageData.set(bg, pos + 5);
-                // ... and update <maxY> if it's the largest <y> value used so far.
-                if (y > maxY) {
-                    maxY = y;
-                }
+                // Set the new width.
+                that.columns = maxX;
             };
 
-            // Return the <imageData> array, but only up to the <maxY> row.
+            // Return the <imageData> array, but only up to the <rows> row.
             this.getData = function () {
                 var subarray, i;
                 // Before returning the truncated array, set the Alpha byte for every character position to the maximum value, otherwise the whole image will be transparent when later copying into a RGBA.
-                for (subarray = imageData.subarray(0, width * (maxY + 1) * 9), i = 0; i < subarray.length; i += 9) {
-                    subarray[i + 4] = 255;
-                    subarray[i + 8] = 255;
+                for (subarray = imageData.subarray(0, that.columns * that.rows * 10), i = 0; i < subarray.length; i += 10) {
+                    subarray[i + 5] = 255;
+                    subarray[i + 9] = 255;
                 }
                 return subarray;
             };
-
-            // Return the amount of rows written to the <imageData> array.
-            this.getHeight = function () {
-                return maxY + 1;
-            };
-
-            // Return the length of each row in the <imageData> array, in bytes.
-            this.rowLength = width * 9;
         }
 
         // A function to parse a sequence of bytes representing an Artworx file format.
         function adf(bytes, options) {
-            var file, palette, font, imageData;
+            var file, imageData;
 
             // Turn bytes into a File object.
             file = new File(bytes);
@@ -928,28 +888,26 @@ var AnsiLove = (function () {
             // Read version number.
             file.getC();
 
+            imageData = new ScreenData(80);
+
             // Read Palette. See Palette.adf().
-            palette = Palette.adf(file);
+            imageData.palette = Palette.adf(file);
             // Read Font. See Font.font8x16x256().
-            font = Font.font8x16x256(file, options);
+            imageData.font = Font.font8x16x256(file, options);
+
             // Raw Imagedata.
-            imageData = file.read();
+            imageData.raw(file.read());
 
             // Return an object readable by display() for constructing an RGBA image.
             return {
-                "font": font,
-                "height": imageData.length / 2 / 80,
                 "imageData": imageData,
-                "palette": palette,
-                "width": 80,
-                "rowLength": 80 * 2, // Length of each row for the image, in bytes.
                 "sauce": file.sauce // sauce record.
             };
         }
 
         // A function to parse a sequence of bytes representing an ANSI file format.
         function ans(bytes, options) {
-            var file, escaped, escapeCode, j, code, values, columns, imageData, topOfScreen, x, y, savedX, savedY, foreground, background, bold, blink, inverse, palette, icecolors;
+            var file, escaped, escapeCode, j, code, values, columns, imageData, topOfScreen, x, y, savedX, savedY, foreground, background, bold, blink, inverse, icecolors;
 
             // Turn bytes into a File object.
             file = new File(bytes);
@@ -1012,6 +970,19 @@ var AnsiLove = (function () {
 
             // Create the ScreenData() object at the required width.
             imageData = new ScreenData(columns);
+            imageData.font = Font.preset(options.font, options);
+
+            // Choose the correct Palette constant, depending on whichever mode has been set. See Palette for more information.
+            switch (options.bits) {
+            case "ced":
+                imageData.palette = Palette.CED;
+                break;
+            case "workbench":
+                imageData.palette = Palette.WORKBENCH;
+                break;
+            default:
+                imageData.palette = Palette.ANSI;
+            }
 
             // Returns an array of values found in <escapeCode>, seperated by ";". If there value is not a number, or missing, then the default value of 1 is used.
             function getValues() {
@@ -1067,7 +1038,7 @@ var AnsiLove = (function () {
                                 break;
                             case "K": // Clear until the end of line.
                                 for (j = x - 1; j < columns; ++j) {
-                                    imageData.set(j, y - 1 + topOfScreen, 0, 0);
+                                    imageData.set(j, y - 1 + topOfScreen, 0, false, 0, 0);
                                 }
                                 break;
                             case "m": // Attributes, work through each code in turn.
@@ -1139,13 +1110,13 @@ var AnsiLove = (function () {
                         } else {
                             // If "ced" mod has been invoked, don't record any additional attribute data.
                             if (options.mode === "ced") {
-                                imageData.set(x - 1, y - 1 + topOfScreen, code, 1);
+                                imageData.set(x - 1, y - 1 + topOfScreen, code, false, 1, 0);
                             } else {
                                  // In <inverse> mode, or not, set the character <code> and attribute data to the <imageData> object, according to the current <foreground>, <background>, <icecolors>, <bold>, and <blink> setting.
                                 if (!inverse) {
-                                    imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (foreground + 8) : foreground) + (blink && icecolors ? (background + 8 << 4) : (background << 4)));
+                                    imageData.set(x - 1, y - 1 + topOfScreen, code, false, (bold ? (foreground + 8) : foreground), (blink && icecolors ? background + 8 : background));
                                 } else {
-                                    imageData.set(x - 1, y - 1 + topOfScreen, code, (bold ? (background + 8) : background) + (blink && icecolors ? (foreground + 8 << 4) : (foreground << 4)));
+                                    imageData.set(x - 1, y - 1 + topOfScreen, code, false, (bold ? (background + 8) : background), (blink && icecolors ? foreground + 8 : foreground));
                                 }
                             }
                             // If the end of row has been reached, start a new line.
@@ -1157,26 +1128,9 @@ var AnsiLove = (function () {
                 }
             }
 
-            // Choose the correct Palette constant, depending on whichever mode has been set. See Palette for more information.
-            switch (options.bits) {
-            case "ced":
-                palette = Palette.CED;
-                break;
-            case "workbench":
-                palette = Palette.WORKBENCH;
-                break;
-            default:
-                palette = Palette.ANSI;
-            }
-
             // Returns an object usable by display() to convert into an RGBA array.
             return {
-                "font": Font.preset(options.font, options),
-                "imageData": imageData.getData(),
-                "rowLength": imageData.rowLength, // size of each row in bytes.
-                "palette": palette,
-                "width": columns,
-                "height": imageData.getHeight(),
+                "imageData": imageData,
                 "sauce": file.sauce // SAUCE record.
             };
         }
@@ -1188,6 +1142,8 @@ var AnsiLove = (function () {
             // Create a new <file> object, based on <bytes>, and create an <imageData> representation of the screen.
             file = new File(bytes);
             imageData = new ScreenData(80);
+            imageData.font = Font.preset(options.font, options);
+            imageData.palette = Palette.ASC_PC;
 
             // Initialize the cursor position by setting <x> and <y>.
             x = 0;
@@ -1206,7 +1162,7 @@ var AnsiLove = (function () {
                     x = 0;
                 } else {
                     // For a literal, record the character code at the <x> and <y>.
-                    imageData.set(x, y, code, 1);
+                    imageData.set(x, y, code, false, 1, 0);
                     // Start a new line when columns is reached.
                     if (++x === 80) {
                         ++y;
@@ -1217,12 +1173,7 @@ var AnsiLove = (function () {
 
             // Returns an object usable by display() to convert into an RGBA array.
             return {
-                "font": Font.preset(options.font, options),
-                "imageData": imageData.getData(),
-                "palette": Palette.ASC_PC,
-                "width": 80,
-                "rowLength": imageData.rowLength, // size of each row in bytes.
-                "height": imageData.getHeight(),
+                "imageData": imageData,
                 "sauce": file.sauce // SAUCE record.
             };
         }
@@ -1233,7 +1184,13 @@ var AnsiLove = (function () {
 
             // Create a new <file> object, based on <bytes>, and create an <imageData> representation of the screen.
             file = new File(bytes);
-            imageData = file.read();
+
+            imageData = new ScreenData(options.columns);
+            imageData.font = Font.preset(options.font, options);
+            imageData.palette = Palette.BIN;
+
+            // Raw Imagedata.
+            imageData.raw(file.read());
 
             // If there is sauce record, look for an <icecolors> setting in flags, use the user-defined or default setting if not.
             if (file.sauce) {
@@ -1251,19 +1208,14 @@ var AnsiLove = (function () {
 
             // Returns an object usable by display() to convert into an RGBA array.
             return {
-                "font": Font.preset(options.font, options),
-                "height": Math.round(imageData.length / 2 / options.columns),
                 "imageData": imageData,
-                "palette": Palette.BIN,
-                "width": options.columns,
-                "rowLength": options.columns * 2, // Length of each row in bytes.
                 "sauce": file.sauce // SAUCE record.
             };
         }
 
         // A function to parse a sequence of bytes representing an iCE Draw file format.
         function idf(bytes, options) {
-            var file, columns, palette, font, imageData, c, loop, ch, attr;
+            var file, columns, imageData, c, loop, ch, attr, x, y;
 
             // Convert the bytes to a File() object.
             file = new File(bytes);
@@ -1277,6 +1229,9 @@ var AnsiLove = (function () {
 
             // Seek to the raw image data, and decode based on a run length encoding method.
             file.seek(12);
+
+            x = 0;
+            y = 0;
             while (file.getPos() < file.size - 4144) {
                 c = file.get16();
                 if (c === 1) {
@@ -1285,24 +1240,27 @@ var AnsiLove = (function () {
                     ch = file.get();
                     attr = file.get();
                     while (loop-- > 0) {
-                        imageData.push(ch, attr);
+                        imageData.set(x++, y, ch, false, attr & 15, attr >> 4);
+                        if (x === columns) {
+                            x = 0;
+                            ++y;
+                        }
                     }
                 } else {
-                    imageData.push(c & 255, c >> 8);
+                    imageData.set(x++, y, c & 255, false, (c >> 8) & 15, c >> 12);
+                    if (x === columns) {
+                        x = 0;
+                        ++y;
+                    }
                 }
             }
 
             // Decode the font and palette data.
-            font = Font.font8x16x256(file, options);
-            palette = Palette.triplets16(file);
+            imageData.font = Font.font8x16x256(file, options);
+            imageData.palette = Palette.triplets16(file);
 
             return {
-                "font": font,
-                "height": imageData.getHeight(),
-                "imageData": imageData.getData(),
-                "palette": palette,
-                "width": columns,
-                "rowLength": imageData.rowLength, // The length of each row of text in <imageData>, in bytes.
+                "imageData": imageData,
                 "sauce": file.sauce // The SAUCE record.
             };
         }
@@ -1314,6 +1272,8 @@ var AnsiLove = (function () {
             // Convert bytes into a File() object, only for the convenience of later extracting the sauce record.
             file = new File(bytes);
             imageData = new ScreenData(80);
+            imageData.font = Font.preset(options.font, options);
+            imageData.palette = Palette.BIN;
 
             // Reset all colour attributes, <bg> and <fg> and cursor positions, <x> and <y>.
             bg = 0;
@@ -1330,7 +1290,7 @@ var AnsiLove = (function () {
 
             // Convenient function, to insert the current character code, <charCode>, with foreground and background attributes, <fg> and <bg>, at the current cursor position, <x> and <y>.
             function printChar() {
-                imageData.set(x, y, charCode, fg + (bg << 4));
+                imageData.set(x, y, charCode, false, fg, bg);
                 if (++x === 80) {
                     y++;
                     x = 0;
@@ -1393,12 +1353,7 @@ var AnsiLove = (function () {
             }
 
             return {
-                "font": Font.preset(options.font, options),
-                "height": imageData.getHeight(),
-                "imageData": imageData.getData(),
-                "palette": Palette.BIN,
-                "width": 80,
-                "rowLength": imageData.rowLength, // Length of the <imageData> per row, in bytes.
+                "imageData": imageData,
                 "sauce": file.sauce // The sauce record.
             };
         }
@@ -1434,7 +1389,9 @@ var AnsiLove = (function () {
             y = 0;
 
             // Create the <imageData> object, as a 24-bit version.
-            imageData = new ScreenData24(80);
+            imageData = new ScreenData(80);
+            imageData.font = Font.preset(options.font, options);
+            imageData.palette = Palette.ANSI;
 
             while (!file.eof()) {
                 // Start a newline if the current <x> position exceeds the column width.
@@ -1471,25 +1428,20 @@ var AnsiLove = (function () {
                 }
                 // In case we see a literal, print it (<charCode>), with the current foreground and background attributes, <fg> and <bg>.
                 if (charCode !== 1 && charCode !== 2 && charCode !== 4 && charCode !== 6) {
-                    imageData.set(x, y, charCode, fg, bg);
+                    imageData.set(x, y, charCode, true, fg, bg);
                     ++x;
                 }
             }
 
             return {
-                "font": Font.preset(options.font, options),
-                "height": imageData.getHeight(),
-                "imageData": imageData.getData(),
-                "palette": undefined, // Set to undefined, as the palette information is in the <imageData> object.
-                "width": 80,
-                "rowLength": imageData.rowLength, // The length of each row in <imageData>, in bytes.
+                "imageData": imageData,
                 "sauce": file.sauce // The sauce record.
             };
         }
 
         // A function to parse a sequence of bytes representing an XBiN file format.
         function xb(bytes, options) {
-            var file, header, palette, font, imageData;
+            var file, header, imageData;
 
             // This function is called to parse the XBin header.
             function XBinHeader(file) {
@@ -1575,51 +1527,29 @@ var AnsiLove = (function () {
             file = new File(bytes);
             header = new XBinHeader(file);
 
-            // If palette information is included, read it immediately after the header, if not, use the default palette used for BIN files.
-            palette = header.palette ? Palette.triplets16(file) : Palette.BIN;
-            // If font information is included, read it, if not, use the default 80x25 font.
-            font = header.font ? Font.xbin(file, header.fontHeight, options) : Font.preset("80x25", options);
             // Fetch the image data, and uncompress if necessary.
-            imageData = header.compressed ? uncompress(file, header.width, header.height) : file.read(header.width * header.height * 2);
+            imageData = new ScreenData(header.width);
+
+            // If palette information is included, read it immediately after the header, if not, use the default palette used for BIN files.
+            imageData.palette = header.palette ? Palette.triplets16(file) : Palette.BIN;
+            // If font information is included, read it, if not, use the default 80x25 font.
+            imageData.font = header.font ? Font.xbin(file, header.fontHeight, options) : Font.preset("80x25", options);
+
+            if (header.compressed) {
+                imageData.raw(uncompress(file, header.width, header.height));
+            } else {
+                imageData.raw(file.read(header.width * header.height * 2));
+            }
 
             return {
-                "font": font,
-                "height": header.height,
                 "imageData": imageData,
-                "palette": palette,
-                "width": header.width,
-                "rowLength": header.width * 2, // The length of each row of text in <imageData>, in bytes.
                 "sauce": file.sauce // The sauce record.
             };
         }
 
-        // This routine accepts an image <data> object, with character and attribute pairs, and trims the excess columns by finding the longest line and truncating the array, and set a new width. Used for .diz files.
-        function trimColumns(data) {
-            var i, height, j, maxX, imageData;
-            for (maxX = 0, height = data.imageData.length / 2 / data.width, i = 0; i < data.imageData.length; i += 2) {
-                // If a character code is seen, check to see if it's the highest column value, and record it if necessary.
-                if (data.imageData[i]) {
-                    maxX = Math.max((i / 2) % data.width, maxX);
-                }
-            }
-            // Create a new imageData object, with a reduced size if necessary.
-            for (imageData = new Uint8Array((maxX + 1) * height * 2), i = j = 0; i < data.imageData.length; i += 2) {
-                if (i / 2 % data.width <= maxX) {
-                    imageData[j++] = data.imageData[i];
-                    imageData[j++] = data.imageData[i + 1];
-                }
-            }
-            data.imageData = imageData;
-            // Set the new width.
-            data.width = maxX + 1;
-            // and row length.
-            data.rowLength = data.width * 2;
-            return data;
-        }
-
         // Parses an array of <bytes>, which represent a file, and calls <callback> when the image has been generated successfully, <splitRows> is set to a value greater than 0 if the image is to be split over multiple images, defined by an amount of rows. And <options> is key-pair list of options supplied by the user.
         function readBytes(bytes, callback, splitRows, options) {
-            var data, returnArray, start, splitLength, displayData;
+            var data, returnArray, start, displayData;
 
             // Validate the options given by the user.
             options = validateOptions(options);
@@ -1635,7 +1565,8 @@ var AnsiLove = (function () {
             case "diz":
             case "ion":
                 // For diz files, use the ascii parser, and use the default, or user-defined font. Also, trim the extra columns.
-                data = trimColumns(asc(bytes, options));
+                data = asc(bytes, options);
+                data.imageData.trimColumns();
                 break;
             case "adf":
                 // For Artworx files, use the adf parser. Font is already defined in the file.
@@ -1670,10 +1601,9 @@ var AnsiLove = (function () {
             if (splitRows > 0) {
                 // .. intialize an array used to store the multiple images, and calculate the byte-length of each image.
                 returnArray = [];
-                splitLength = data.rowLength * splitRows;
-                for (start = 0; start < data.imageData.length; start += splitLength) {
+                for (start = 0; start < data.imageData.rows; start += splitRows) {
                     // Call display with each "chunk" of data.
-                    displayData = display(data, start, splitLength, options);
+                    displayData = display(data.imageData, start, splitRows, options);
                     // Push the either raw image data or a canvas of each image into the array, according to the <options.imagedata> setting...
                     returnArray.push(options.imagedata ? displayData : displayDataToCanvas(displayData));
                 }
@@ -1681,7 +1611,7 @@ var AnsiLove = (function () {
                 callback(returnArray, data.sauce);
             } else {
                 // For a single image, send the data to display()...
-                displayData = display(data, 0, data.imageData.length, options);
+                displayData = display(data.imageData, 0, data.imageData.rows, options);
                 // ... and call callback() with either the raw data, or a canvas element, depending on the <options.imagedata> setting. 
                 callback(options.imagedata ? displayData : displayDataToCanvas(displayData), data.sauce);
             }
