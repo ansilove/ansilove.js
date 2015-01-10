@@ -74,6 +74,20 @@ var AnsiLove = (function () {
             return string.replace(/\s+$/, '');
         };
 
+        // Returns a string of <num> characters at the current file position which is terminated by a null character.
+        this.getSZ = function (num) {
+            var string, value;
+            string = "";
+            while (num-- > 0) {
+                value = this.get();
+                if (value === 0) {
+                    break;
+                }
+                string += String.fromCharCode(value);
+            }
+            return string;
+        };
+
         // Returns "true" if, at the current <pos>, a string of characters matches <match>. Does not increment <pos>.
         this.lookahead = function (match) {
             var i;
@@ -144,6 +158,7 @@ var AnsiLove = (function () {
             this.sauce.comments = [];
             commentCount = this.get(); // unsigned 8-bit
             this.sauce.flags = this.get(); // unsigned 8-bit
+            this.sauce.tInfoS = this.getSZ(22); // Null-terminated string, maximum of 22 characters
             if (commentCount > 0) {
                 // If we have a value for the comments amount, seek to the position we'd expect to find them...
                 pos = bytes.length - 128 - (commentCount * 64) - 5;
