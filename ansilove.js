@@ -439,7 +439,7 @@ var AnsiLove = (function () {
                                 fontBuffer[bufferIndex].set(palette[fg], k);
                             } else {
                                 // In case that this is an <amigaFont>, and the foreground colour <fg> is set to bold type, i.e. 8 to 15, make sure we 'double-width' the glyph.
-                                if (amigaFont && (fg > 7) && (i > 0) && bits[j - 1]) {
+                                if (amigaFont && (fg > 7) && (i > 0) && bits[j - 1] && (options.bits === "ced" || options.bits === "workbench")) {
                                     fontBuffer[bufferIndex].set(palette[fg], k);
                                 } else {
                                     fontBuffer[bufferIndex].set(palette[bg], k);
