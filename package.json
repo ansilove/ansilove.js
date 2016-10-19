@@ -1,0 +1,27 @@
+{
+  "name": "ansilove.js",
+  "version": "1.0.0",
+  "description": "AnsiLove.js is a partial rewrite of ansilove and AnsiLove-C in the Javascript programming language",
+  "main": "ansilove.js",
+  "directories": {
+    "example": "example"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ansilove/ansilove.js.git"
+  },
+  "keywords": [
+    "ansi",
+    "javascript",
+    "ansilove"
+  ],
+  "author": "Andrew Herbert <http://andyh.org/>",
+  "license": "BSD-3-Clause",
+  "bugs": {
+    "url": "https://github.com/ansilove/ansilove.js/issues"
+  },
+  "homepage": "https://github.com/ansilove/ansilove.js#readme"
+}
