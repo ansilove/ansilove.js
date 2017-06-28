@@ -158,6 +158,9 @@ var AnsiLove = (function () {
             this.sauce.comments = [];
             commentCount = this.get(); // unsigned 8-bit
             this.sauce.flags = this.get(); // unsigned 8-bit
+            this.sauce.blinkMode = (this.sauce.flags & 1) === 1;
+            this.sauce.letterSpacing = (this.sauce.flags >> 1) & 3;
+            this.sauce.aspectRatio = (this.sauce.flags >> 3) & 3;
             this.sauce.tInfoS = this.getSZ(22); // Null-terminated string, maximum of 22 characters
             if (commentCount > 0) {
                 // If we have a value for the comments amount, seek to the position we'd expect to find them...
@@ -974,6 +977,50 @@ var AnsiLove = (function () {
                 }
                 // If no-blink mode is set in the sauce flags, use it. Otherwise, default to <options.icecolors> setting.
                 icecolors = file.sauce.flags & 1 || options.icecolors;
+                // Override the letterspacing setting if defined in sauce
+                switch (file.sauce.letterSpacing) {
+                case 1:
+                    options.bits = "8";
+                    break;
+                case 2:
+                    options.bits = "9";
+                    break;
+                default:
+                    break;
+                }
+                // Override the font setting if defined in sauce
+                switch (file.sauce.tInfoS) {
+                case "IBM VGA":
+                    options.font = "80x25";
+                    break;
+                case "IBM VGA50":
+                    options.font = "80x50";
+                    break;
+                case "Amiga Topaz 1":
+                    options.font = "topaz500";
+                    break;
+                case "Amiga Topaz 1+":
+                    options.font = "topaz500+";
+                    break;
+                case "Amiga Topaz 2":
+                    options.font = "topaz";
+                    break;
+                case "Amiga Topaz 2+":
+                    options.font = "topaz+";
+                    break;
+                case "Amiga P0T-NOoDLE":
+                    options.font = "pot-noodle";
+                    break;
+                case "Amiga MicroKnight":
+                    options.font = "microknight";
+                    break;
+                case "Amiga MicroKnight+":
+                    options.font = "microknight+";
+                    break;
+                case "Amiga mOsOul":
+                    options.font = "mosoul";
+                    break;
+                }
             } else {
                 // If "ced" mode has been invoked, set the <columns> to 78 character wide. Otherwise, use the default 80.
                 if (options.mode === "ced") {
@@ -1246,6 +1293,61 @@ var AnsiLove = (function () {
             // If there is sauce record, look for an <icecolors> setting in flags, use the user-defined or default setting if not.
             if (file.sauce) {
                 icecolors = file.sauce.flags & 1 || options.icecolors;
+                // Override the letterspacing setting if defined in sauce
+                switch (file.sauce.letterSpacing) {
+                case 1:
+                    options.bits = "8";
+                    break;
+                case 2:
+                    options.bits = "9";
+                    break;
+                default:
+                    break;
+                }
+                // Override the letterspacing setting if defined in sauce
+                switch (file.sauce.letterSpacing) {
+                case 1:
+                    options.bits = "8";
+                    break;
+                case 2:
+                    options.bits = "9";
+                    break;
+                default:
+                    break;
+                }
+                // Override the font setting if defined in sauce
+                switch (file.sauce.tInfoS) {
+                case "IBM VGA":
+                    options.font = "80x25";
+                    break;
+                case "IBM VGA50":
+                    options.font = "80x50";
+                    break;
+                case "Amiga Topaz 1":
+                    options.font = "topaz500";
+                    break;
+                case "Amiga Topaz 1+":
+                    options.font = "topaz500+";
+                    break;
+                case "Amiga Topaz 2":
+                    options.font = "topaz";
+                    break;
+                case "Amiga Topaz 2+":
+                    options.font = "topaz+";
+                    break;
+                case "Amiga P0T-NOoDLE":
+                    options.font = "pot-noodle";
+                    break;
+                case "Amiga MicroKnight":
+                    options.font = "microknight";
+                    break;
+                case "Amiga MicroKnight+":
+                    options.font = "microknight+";
+                    break;
+                case "Amiga mOsOul":
+                    options.font = "mosoul";
+                    break;
+                }
             } else {
                 icecolors = options.icecolors;
             }
