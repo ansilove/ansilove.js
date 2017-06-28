@@ -1608,12 +1608,9 @@ var AnsiLove = (function () {
             // Choose which parser to use, based on the setting defined in <options.filetype>.
             switch (options.filetype) {
             case "txt":
-            case "nfo":
-            case "asc":
                 // For plain-text files, use the ascii parser, and use the default, or user-defined font.
                 data = asc(bytes, options);
                 break;
-            case "diz":
             case "ion":
                 // For diz files, use the ascii parser, and use the default, or user-defined font. Also, trim the extra columns.
                 data = asc(bytes, options);
@@ -1642,6 +1639,10 @@ var AnsiLove = (function () {
             case "xb":
                 // For XBin files, use the xb parser. Font is already set in the parser.
                 data = xb(bytes, options);
+                break;
+            case "diz":
+                data = ans(bytes, options);
+                data.imageData.trimColumns();
                 break;
             default:
                 // For unrecognised filetypes, use the ANSI parser.
