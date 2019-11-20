@@ -4,9 +4,6 @@ AnsiLove.js is a partial rewrite of [ansilove][1] and [AnsiLove-C][2] in the Jav
 
 AnsiLove.js supports the majority of options found in the original set of tools.
 
-[ansilove™][1] is a trademark of Frederic Cambus.  
-[AnsiLove-C™][2] is a trademark of Stefan Vogt, Brian Cassidy and Frederic Cambus.
-
 AnsiLove.js has been tested on Safari, Firefox, and Chrome. Results may vary widely on Internet Explorer browsers.
 
 ## Features
