@@ -1881,6 +1881,9 @@ var AnsiLove = (function () {
             columns = 80;
         }
 
+        // Set the amount of <columns> is set in <options>, use it.
+        columns = options.columns || columns;
+
         // Set the amount of <rows> is set in <options>, use it.
         rows = options.rows || 26;
 
