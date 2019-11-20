@@ -4,7 +4,7 @@
  * Copyright (c) 2013-2017, Andrew Herbert and Frederic Cambus
  * https://www.ansilove.org
  *
- * AnsiLove.js is released under the BSD 3-Clause license.
+ * AnsiLove.js is released under the BSD 2-Clause license.
  * See LICENSE file for details.
  */
 

@@ -194,7 +194,7 @@ It is also possible to retrieve a record for a file without generating an image 
 
 ## License
 
-AnsiLove.js is released under the BSD 3-Clause license. See `LICENSE` file for details.
+AnsiLove.js is released under the BSD 2-Clause license. See `LICENSE` file for details.
 
 ## Author
 
