@@ -1,3 +1,13 @@
+/*
+ * AnsiLove.js
+ * Copyright (c) 2019, Frederic Cambus
+ * Copyright (c) 2013-2017, Andrew Herbert and Frederic Cambus
+ * https://www.ansilove.org
+ *
+ * AnsiLove.js is released under the BSD 3-Clause license.
+ * See LICENSE file for details.
+ */
+
 var AnsiLove = (function () {
     "use strict";
     var Palette, Font, Parser, Popup;

@@ -201,8 +201,8 @@ AnsiLove.js is released under the BSD 3-Clause license. See `LICENSE` file for d
 
 ## Author
 
-AnsiLove is developed by [Frederic Cambus](http://www.cambus.net)  
-AnsiLove.js is developed by [Andrew Herbert](http://andyh.org)
+AnsiLove.js was written by [Andrew Herbert](http://andyh.org) and is now
+maintained by [Frederic Cambus](https://www.cambus.net).
 
 ## Resources
 
