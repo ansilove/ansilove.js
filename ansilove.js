@@ -1,6 +1,6 @@
 /*
  * AnsiLove.js
- * Copyright (c) 2019, Frederic Cambus
+ * Copyright (c) 2019-2020, Frederic Cambus
  * Copyright (c) 2013-2017, Andrew Herbert and Frederic Cambus
  * https://www.ansilove.org
  *
