@@ -1141,6 +1141,9 @@ var AnsiLove = (function () {
                                             break;
                                         case 5: // Blink
                                             blink = true;
+                                            if (background24bit) {
+                                                background24bit = undefined;
+                                            }
                                             break;
                                         case 7: // Inverse
                                             inverse = true;
