@@ -222,7 +222,7 @@ Ansilove.js is developed by [Andrew Herbert](http://andyh.org)
 
 ## Resources
 
-Project Homepage : [https://github.com/andyherbert/ansilove.js](https://github.com/andyherbert/ansilove.js)
+Project Homepage : [https://github.com/ansilove/ansilove.js](https://github.com/ansilove/ansilove.js)
 
 [1]: https://github.com/fcambus/ansilove
 [2]: https://github.com/ByteProject/AnsiLove-C
