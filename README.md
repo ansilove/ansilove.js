@@ -194,12 +194,13 @@ It is also possible to retrieve a record for a file without generating an image 
 
 ## License
 
-AnsiLove.js is released under the BSD 2-Clause license. See `LICENSE` file for details.
+AnsiLove.js is released under the BSD 2-Clause license. See `LICENSE` file
+for details.
 
 ## Author
 
-AnsiLove.js was written by [Andrew Herbert](http://andyh.org) and is now
-maintained by [Frederic Cambus](https://www.cambus.net).
+AnsiLove.js was written by [Andrew Herbert](https://github.com/andyherbert)
+and is now maintained by [Frederic Cambus](https://www.cambus.net).
 
 ## Resources
 
@@ -207,4 +208,4 @@ Project Homepage : [https://ansilove.github.com/ansilove.js](https://ansilove.gi
 
 [1]: https://github.com/fcambus/ansilove
 [2]: https://github.com/ByteProject/AnsiLove-C
-[3]: http://web.archive.org/web/20120204063648/http://www.acid.org/info/sauce/sauce.htm
+[3]: https://github.com/radman1/sauce
