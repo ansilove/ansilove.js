@@ -16,7 +16,7 @@ controller = AnsiLove.animate("ans/example_usage.ans", function (canvas, sauce) 
 
 ## Description
 
-AnsiLove.js is a partial rewrite of [ansilove][1] and [AnsiLove-C][2] in the Javascript programming language. Unlike the original projects, AnsiLove.js enables artscene related file formats to be displayed directly on a webpage on the client-side, and supports ANSi (.ANS), PCBOARD (.PCB), BiNARY (.BIN), ADF (.ADF), iDF (.IDF), TUNDRA (.TND) and XBiN (.XB) formats.
+AnsiLove.js is a partial rewrite of [ansilove][1] in the Javascript programming language. Unlike the original projects, AnsiLove.js enables artscene related file formats to be displayed directly on a webpage on the client-side, and supports ANSi (.ANS), PCBOARD (.PCB), BiNARY (.BIN), ADF (.ADF), iDF (.IDF), TUNDRA (.TND) and XBiN (.XB) formats.
 
 AnsiLove.js supports the majority of options found in the original set of tools.
 
@@ -183,7 +183,7 @@ Delivers a canvas element which has double the width and height in pixels, but s
 
 ### SAUCE record
 
-As well as a canvas element, a [SAUCE][3] record is returned as a Javascript object if one is found, and follows this format:
+As well as a canvas element, a [SAUCE][2] record is returned as a Javascript object if one is found, and follows this format:
 
     {
         "version": "00",
@@ -224,6 +224,5 @@ Project homepage: [https://ansilove.github.io/ansilove.js](https://ansilove.gith
 
 GitHub: [https://github.com/ansilove/ansilove.js](https://github.com/ansilove/ansilove.js)
 
-[1]: https://github.com/fcambus/ansilove
-[2]: https://github.com/ByteProject/AnsiLove-C
-[3]: https://github.com/radman1/sauce
+[1]: https://github.com/ansilove/ansilove
+[2]: https://github.com/radman1/sauce
