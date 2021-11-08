@@ -228,4 +228,4 @@ GitHub: [https://github.com/ansilove/ansilove.js](https://github.com/ansilove/an
 
 [1]: https://github.com/fcambus/ansilove
 [2]: https://github.com/ByteProject/AnsiLove-C
-[3]: http://web.archive.org/web/20120204063648/http://www.acid.org/info/sauce/sauce.htm
+[3]: https://github.com/radman1/sauce
