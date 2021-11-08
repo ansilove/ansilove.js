@@ -204,7 +204,9 @@ and is now maintained by [Frederic Cambus](https://www.cambus.net).
 
 ## Resources
 
-Project Homepage : [https://ansilove.github.com/ansilove.js](https://ansilove.github.com/ansilove.js)
+Project homepage: [https://ansilove.github.io/ansilove.js](https://ansilove.github.io/ansilove.js)
+
+GitHub: [https://github.com/ansilove/ansilove.js](https://github.com/ansilove/ansilove.js)
 
 [1]: https://github.com/fcambus/ansilove
 [2]: https://github.com/ByteProject/AnsiLove-C
