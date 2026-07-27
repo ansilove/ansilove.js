@@ -193,7 +193,7 @@ var AnsiLove = (function () {
 
         if (this.sauce) {
             // If we have found a SAUCE record, and the fileSize field passes some basic sanity checks...
-            if (this.sauce.fileSize > 0 && this.sauce.fileSize < bytes.length) {
+            if (this.sauce.fileSize > 0 && this.sauce.fileSize <= bytes.length - 128) {
                 // Set <this.size> to the value set in SAUCE.
                 this.size = this.sauce.fileSize;
             } else {
