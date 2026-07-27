@@ -1200,7 +1200,8 @@ var AnsiLove = (function () {
                             newLine();
                         }
                         break;
-                    case 26: // Ignore eof characters until the actual end-of-file, or sauce record has been reached.
+                    case 26: // Stop rendering when a SUB character is encountered
+                        file.seek(file.size);
                         break;
                     default:
                         // Go in <escaped> mode if "Esc[" is seen.
@@ -2136,7 +2137,8 @@ var AnsiLove = (function () {
                             }
                         }
                         break;
-                    case 26: // Ignore eof characters.
+                    case 26: // Stop rendering when a SUB character is encountered
+                        file.seek(file.size);
                         break;
                     default: // Deal with literals
                         // If an ANSI control code is seen, go into <escaped> mode.
